@@ -163,3 +163,9 @@ This release was produced with AI coding assistance and checked by automated CLI
 tests and an example run. No customer adoption, independently audited security,
 data-cleaning accuracy beyond its declared comparison rules, or earnings are
 claimed. Keep originals and check the review file before making business changes.
+
+## Voluntary support enquiries
+
+If this free tool is useful to you, you can [offer voluntary support by email](mailto:jayos00001@gmail.com?subject=Local%20Row%20Check%20voluntary%20support).
+Any amount, currency and receiving method must be agreed before funds are sent; please do not send account details or credentials.
+This is optional support for further public work, with no promised features, service, response time or charitable tax deduction. The existing licence stays the same.
