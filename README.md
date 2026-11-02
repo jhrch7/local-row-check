@@ -19,9 +19,11 @@ any order. Running the tool yourself is free.
 
 ## Start here
 
-Requires Python 3.9 or later and two CSV files with a common key column. This
-release was exercised on macOS with Python 3.14. Windows and Linux have not been
-observed in this release's verification.
+Requires Python 3.9 or later and two CSV files with a common key column.
+The eleven CLI checks passed on macOS with Python 3.14 and on GitHub-hosted
+Ubuntu 24.04 and Windows Server 2025 with Python 3.14.9. See the
+[Linux/Windows verification run](https://github.com/jhrch7/local-row-check/actions/runs/41469427847).
+Other Python versions have not been exercised by these checks.
 
 1. Unzip the source download, or clone the repository.
 2. Open a terminal in the unzipped folder.
