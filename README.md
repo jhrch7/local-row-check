@@ -1,11 +1,14 @@
 # Local Row Check
 
+Version 1.1.0.
+
 Compare two CSV exports on your computer. Find keys that appear in only one file,
-and review blank or duplicate keys separately. Nothing is uploaded. No account,
+review blank or duplicate keys separately, and optionally compare selected values
+on unique shared keys. Nothing is uploaded. No account,
 AI service or third-party Python package is needed to run it.
 
 The source, guide, examples and tests are free under the MIT licence.
-Download the [source ZIP](https://github.com/jhrch7/local-row-check/archive/refs/heads/main.zip)
+Download the [1.1.0 source ZIP](https://github.com/jhrch7/local-row-check/archive/refs/tags/v1.1.0.zip)
 or clone this repository.
 
 For a small comparison handled for you, the optional
@@ -39,10 +42,11 @@ python3 rowcheck.py "first export.csv" "second export.csv" --key "Customer ID" -
 ```
 
 Use a unique, stable identifier when available. A shared name alone does not prove
-that two rows describe the same person. This tool compares strings; it makes no
-identity judgement and does not check whether non-key columns agree.
+that two rows describe the same person. This tool compares strings and makes no
+identity judgement. The default run compares keys only; value comparison is an
+explicit option below.
 
-## The four reports
+## The four default reports
 
 | File | Meaning |
 |---|---|
@@ -59,6 +63,34 @@ may contain a newline without becoming two records.
 Every row in a duplicated-key group goes to review, including the corresponding
 row from the other file. Duplicate rows are not silently discarded or counted as
 a resolved match. The review file retains original row values inside a JSON cell.
+
+## Compare selected values
+
+For catalogue-style exports, choose the non-key columns you want checked:
+
+```sh
+python3 rowcheck.py examples/catalog/left.csv examples/catalog/right.csv --key SKU --compare-columns Price Stock --out catalog-report
+```
+
+This adds `value_changes.csv`: one row per changed cell, with the comparison key,
+column, before/after values and both source-record numbers. The manifest and
+terminal summary also count the shared keys checked, keys with changes, keys
+without selected changes and changed cells. All five CSVs have output hashes.
+
+The example has three unique shared keys, two with changes across three selected
+cells. One price changes from `20.00` to `20.0`: these are different strings even
+though a numeric interpretation might consider them equal. A changed title is
+ignored because `Title` was not selected. See the [actual example reports](examples/catalog/report).
+
+Column names must be unique, non-key headers present in both files; quote names
+containing spaces. Values are compared as exact decoded strings. Key trimming or
+case-folding does not change value comparison. No numeric, date or currency
+coercion is performed. Blank or duplicated keys still go entirely to review and
+are never paired for cell comparison. A key with no selected changes does not
+mean the complete rows agree. Formula-like output cells receive the same
+spreadsheet apostrophe prefix described below; use source records for originals.
+
+Without `--compare-columns`, the four-report key comparison remains the default.
 
 ## Choose comparison rules deliberately
 
@@ -123,6 +155,9 @@ The code and guide are offered under the included MIT licence, which permits
 modification and redistribution, including commercial use. There is no exclusive
 licence or restriction preventing others from sharing the code. The download
 contains the runnable script, guide, synthetic examples and tests.
+
+The original 1.0.0 public source remains available at its
+[pinned commit](https://github.com/jhrch7/local-row-check/tree/218b27bd270bc32b737f144343f61488e1e3e891).
 
 This release was produced with AI coding assistance and checked by automated CLI
 tests and an example run. No customer adoption, independently audited security,

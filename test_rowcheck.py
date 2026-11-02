@@ -40,6 +40,8 @@ class RowCheckTests(unittest.TestCase):
         result, out = self.run_tool(a, b)
         self.assertEqual(result.returncode, 0, result.stderr)
         m = json.loads((out / "manifest.json").read_text())
+        self.assertNotIn("value_changes.csv", m["outputs"])
+        self.assertNotIn("value_comparison", m)
         self.assertEqual(m["counts"], {"left": {"input": 2, "only": 1, "shared": 1, "review": 0},
                                        "right": {"input": 2, "only": 1, "shared": 1, "review": 0}})
         self.assertEqual(self.read_csv(out / "only_left.csv")[1][-2:], ["Sam", "a,b"])
@@ -114,6 +116,66 @@ class RowCheckTests(unittest.TestCase):
                                  "--out", str(self.root / "bad")], capture_output=True, text=True)
         self.assertEqual(result.returncode, 2)
         self.assertFalse((self.root / "bad").exists())
+
+    def test_selected_values_use_exact_text_and_preserve_row_accounting(self):
+        a = self.write("a.csv", [["Name", "Price", "Stock", "Title"],
+                                 [" Sam ", "10.00", "4", "Widget"],
+                                 ["Lee", "20.00", "3", "Cable"], ["No", "5", "1", "Old title"]])
+        b = self.write("b.csv", [["Stock", "Name", "Price", "Title"],
+                                 ["4", "Sam", "12.00", "Widget"],
+                                 ["5", "Lee", "20.0", "Cable"], ["1", "No", "5", "New title"]])
+        original = [p.read_bytes() for p in (a, b)]
+        result, out = self.run_tool(a, b, "--normalise", "trim", "--compare-columns", "Price", "Stock")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        m = json.loads((out / "manifest.json").read_text())
+        self.assertEqual(self.read_csv(out / "value_changes.csv")[1:], [
+            ["Lee", "2", "2", "Price", "20.00", "20.0"],
+            ["Lee", "2", "2", "Stock", "3", "5"],
+            ["Sam", "1", "1", "Price", "10.00", "12.00"],
+        ])
+        stats = m["value_comparison"]
+        self.assertEqual([stats[k] for k in ("shared_keys_compared", "keys_with_changes",
+                                            "keys_without_selected_changes", "changed_cells")], [3, 2, 1, 3])
+        self.assertEqual(m["counts"]["left"], {"input": 3, "only": 0, "shared": 3, "review": 0})
+        self.assertEqual(original, [p.read_bytes() for p in (a, b)])
+        self.assertEqual(json.loads(result.stdout)["value_comparison"], stats)
+        for name, info in m["outputs"].items():
+            raw = (out / name).read_bytes()
+            self.assertEqual(len(raw), info["bytes"])
+            self.assertEqual(hashlib.sha256(raw).hexdigest(), info["sha256"])
+
+    def test_duplicate_and_blank_keys_are_not_paired_for_value_changes(self):
+        a = self.write("a.csv", [["Name", "Note"], ["Dup", "a"], ["Dup", "b"],
+                                 ["", "c"], ["Safe", "=1+1\nline two"]])
+        b = self.write("b.csv", [["Name", "Note"], ["Dup", "z"], ["Safe", "\t@different"]])
+        result, out = self.run_tool(a, b, "--compare-columns", "Note")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(self.read_csv(out / "value_changes.csv")[1:], [
+            ["Safe", "4", "2", "Note", "'=1+1\nline two", "'\t@different"],
+        ])
+        m = json.loads((out / "manifest.json").read_text())
+        self.assertEqual(m["counts"]["left"], {"input": 4, "only": 0, "shared": 1, "review": 3})
+        self.assertEqual(m["counts"]["right"], {"input": 2, "only": 0, "shared": 1, "review": 1})
+        self.assertEqual(m["value_comparison"]["changed_cells"], 1)
+
+    def test_invalid_selected_columns_fail_before_output(self):
+        a = self.write("a.csv", [["Name", "Price"], ["Sam", "10"]])
+        b = self.write("b.csv", [["Name", "Stock"], ["Sam", "2"]])
+        for columns in (["Price"], ["Stock"], ["Unknown"], ["Name"], ["Price", "Price"], []):
+            with self.subTest(columns=columns):
+                result, out = self.run_tool(a, b, "--compare-columns", *columns)
+                self.assertEqual(result.returncode, 2)
+                self.assertFalse(out.exists())
+
+    def test_header_only_value_comparison_produces_an_empty_valid_report(self):
+        a = self.write("a.csv", [["Name", "Price"]])
+        b = self.write("b.csv", [["Name", "Price"]])
+        result, out = self.run_tool(a, b, "--compare-columns", "Price")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        m = json.loads((out / "manifest.json").read_text())
+        self.assertEqual(len(self.read_csv(out / "value_changes.csv")), 1)
+        self.assertEqual(m["value_comparison"]["shared_keys_compared"], 0)
+        self.assertEqual(m["value_comparison"]["changed_cells"], 0)
 
 
 if __name__ == "__main__":

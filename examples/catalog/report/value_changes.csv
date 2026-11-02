@@ -1,0 +1,4 @@
+﻿comparison_key,left_source_record,right_source_record,column,left_value,right_value
+A-001,1,1,Price,10.00,12.00
+A-002,2,2,Price,20.00,20.0
+A-002,2,2,Stock,3,5

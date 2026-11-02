@@ -10,7 +10,7 @@ from pathlib import Path
 import sys
 import unicodedata
 
-VERSION = "1.0.0"
+VERSION = "1.1.0"
 
 
 def normalise(value, mode):
@@ -71,7 +71,20 @@ def compare(left, right, key, mode):
     return only, review, shared
 
 
-def export(left, right, key, mode, delimiter, encoding, output, only, review, shared):
+def compare_values(left, right, shared, columns):
+    records = {side: dict(data["records"]) for side, data in (("left", left), ("right", right))}
+    changes = []
+    for value, left_number, right_number, _, _ in shared:
+        for column in columns:
+            before = records["left"][left_number][column]
+            after = records["right"][right_number][column]
+            if before != after:
+                changes.append((value, left_number, right_number, column, before, after))
+    return changes
+
+
+def export(left, right, key, mode, delimiter, encoding, output, only, review, shared,
+           columns=(), changes=()):
     escaped = 0
 
     def safe(value):
@@ -106,6 +119,9 @@ def export(left, right, key, mode, delimiter, encoding, output, only, review, sh
              [[side, n, reason, value, json.dumps(row, ensure_ascii=False)]
               for side, n, reason, value, row in review])
     make_csv("shared_keys.csv", [["comparison_key", "left_source_record", "right_source_record", "left_original_key", "right_original_key"]] + list(shared))
+    if columns:
+        make_csv("value_changes.csv", [["comparison_key", "left_source_record", "right_source_record",
+                                        "column", "left_value", "right_value"]] + list(changes))
     manifest = {
         "version": VERSION, "key": key, "normalisation": mode,
         "input_delimiter": delimiter, "input_encoding": encoding,
@@ -124,9 +140,19 @@ def export(left, right, key, mode, delimiter, encoding, output, only, review, sh
                    "Original input files are the authoritative source of original cell values.",
                    "Reports contain your data; keep them private."]
     }
+    if columns:
+        changed_keys = len({row[0] for row in changes})
+        manifest["value_comparison"] = {
+            "columns": list(columns),
+            "method": "Exact decoded strings; key normalisation is not applied to these values.",
+            "shared_keys_compared": len(shared),
+            "keys_with_changes": changed_keys,
+            "keys_without_selected_changes": len(shared) - changed_keys,
+            "changed_cells": len(changes),
+        }
     files["manifest.json"] = (json.dumps(manifest, indent=2, ensure_ascii=False) + "\n").encode()
     output.mkdir(exist_ok=False)
-    # A disk/write failure may leave a partial directory. An incomplete directory has no manifest.
+    # A failed write can leave partial files or a partial manifest; require exit 0 and verified hashes.
     for name, content in files.items():
         with (output / name).open("xb") as target:
             target.write(content)
@@ -140,6 +166,8 @@ def main(argv=None):
     parser.add_argument("--key", required=True, help="Exact column header present in both files")
     parser.add_argument("--out", required=True, type=Path, help="New report directory; must not exist")
     parser.add_argument("--normalise", choices=("none", "trim", "fold"), default="none")
+    parser.add_argument("--compare-columns", nargs="+", default=[], metavar="COLUMN",
+                        help="Compare these non-key columns on unique shared keys; exact text only")
     parser.add_argument("--delimiter", choices=(",", ";", "\t"), default=",")
     parser.add_argument("--encoding", default="utf-8-sig", help="Input encoding; output is UTF-8 with BOM")
     args = parser.parse_args(argv)
@@ -147,13 +175,25 @@ def main(argv=None):
         csv.field_size_limit(10 * 1024 * 1024)
         left = read_input(args.left, args.key, args.delimiter, args.encoding)
         right = read_input(args.right, args.key, args.delimiter, args.encoding)
+        if len(set(args.compare_columns)) != len(args.compare_columns):
+            raise ValueError("comparison columns must be unique")
+        if args.key in args.compare_columns:
+            raise ValueError("the key is already recorded in shared_keys.csv; choose non-key comparison columns")
+        for data in (left, right):
+            missing = [column for column in args.compare_columns if column not in data["columns"]]
+            if missing:
+                raise ValueError(f"{data['name']}: comparison columns are missing: {missing!r}")
         result = compare(left, right, args.key, args.normalise)
+        changes = compare_values(left, right, result[2], args.compare_columns) if args.compare_columns else []
         manifest = export(left, right, args.key, args.normalise, args.delimiter,
-                          args.encoding, args.out, *result)
+                          args.encoding, args.out, *result, columns=args.compare_columns, changes=changes)
     except (OSError, ValueError, UnicodeError, LookupError, csv.Error) as error:
         print(f"Error: {error}", file=sys.stderr)
         return 2
-    print(json.dumps({"report": str(args.out), "counts": manifest["counts"]}, indent=2))
+    summary = {"report": str(args.out), "counts": manifest["counts"]}
+    if args.compare_columns:
+        summary["value_comparison"] = manifest["value_comparison"]
+    print(json.dumps(summary, indent=2))
     return 0
 
 

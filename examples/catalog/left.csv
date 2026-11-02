@@ -1,0 +1,8 @@
+SKU,Price,Stock,Title
+A-001,10.00,4,Widget
+A-002,20.00,3,Cable
+A-003,5.00,7,Battery
+A-003,6.00,8,Battery duplicate
+,9.00,2,Missing SKU
+A-004,2.00,1,Only left
+A-006,1.00,9,Tape
