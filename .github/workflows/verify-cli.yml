@@ -1,0 +1,33 @@
+name: Verify CLI compatibility
+
+"on":
+  push:
+    paths:
+      - '.github/workflows/verify-cli.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  cli:
+    name: Python 3.14 / ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 5
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    steps:
+      - name: Check out public source
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          persist-credentials: false
+      - name: Use Python 3.14
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1
+        with:
+          python-version: '3.14'
+      - name: Record the actual test environment
+        run: python -c "import platform, sys; print(sys.version); print(platform.platform())"
+      - name: Run the existing CLI regression suite
+        run: python -m unittest -v test_rowcheck
