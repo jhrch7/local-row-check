@@ -10,11 +10,14 @@ ROOT = HERE.parent
 def build():
     template = (HERE / "template.html").read_text()
     ui = (HERE / "ui.js").read_text()
-    for side in ("left", "right"):
-        value = (ROOT / "examples/catalog" / f"{side}.csv").read_text()
-        # Escape HTML script terminators in any future synthetic example.
-        value = json.dumps(value, ensure_ascii=False).replace("<", "\\u003c")
-        ui = ui.replace(f"/* ROWCHECK_EXAMPLE_{side.upper()} */", value)
+    for folder, marker_prefix in (("catalog", "EXAMPLE"), ("warehouse", "WAREHOUSE")):
+        for side in ("left", "right"):
+            value = (ROOT / "examples" / folder / f"{side}.csv").read_text()
+            # Escape HTML script terminators in any future synthetic example.
+            value = json.dumps(value, ensure_ascii=False).replace("<", "\\u003c")
+            marker = f"/* ROWCHECK_{marker_prefix}_{side.upper()} */"
+            assert ui.count(marker) == 1
+            ui = ui.replace(marker, value)
     for name, value in (("STYLE", (HERE / "style.css").read_text()),
                         ("CORE", (HERE / "core.js").read_text()), ("UI", ui)):
         marker = f"/* ROWCHECK_{name} */"

@@ -1,0 +1,6 @@
+﻿source,source_record,reason,comparison_key,original_row_json
+left,7,blank key,"[""BLANK"",""""]","{""SKU"": ""BLANK"", ""Warehouse"": """", ""Price"": ""1.00"", ""Stock"": ""1""}"
+right,6,blank key,"["""",""North""]","{""SKU"": """", ""Warehouse"": ""North"", ""Price"": ""1.00"", ""Stock"": ""1""}"
+left,5,duplicate comparison key,"[""DUP"",""East""]","{""SKU"": ""DUP"", ""Warehouse"": ""East"", ""Price"": ""8.00"", ""Stock"": ""1""}"
+left,6,duplicate comparison key,"[""DUP"",""East""]","{""SKU"": ""DUP"", ""Warehouse"": ""East"", ""Price"": ""9.00"", ""Stock"": ""2""}"
+right,5,duplicate comparison key,"[""DUP"",""East""]","{""SKU"": ""DUP"", ""Warehouse"": ""East"", ""Price"": ""8.00"", ""Stock"": ""1""}"

@@ -1,0 +1,4 @@
+﻿comparison_key,left_source_record,right_source_record,column,left_value,right_value
+"[""A"",""B|C""]",9,8,Price,4.00,4.50
+"[""A"",""North""]",1,1,Stock,5,6
+"[""A"",""South""]",2,2,Price,11.00,11.0

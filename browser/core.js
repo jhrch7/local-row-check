@@ -1,7 +1,7 @@
 /* Local Row Check browser core. MIT licence; no network or dependencies. */
 (function (root) {
   'use strict';
-  const VERSION = '1.2.0';
+  const VERSION = '1.3.0';
   const MAX_BYTES = 2 * 1024 * 1024;
   const MAX_RECORDS = 50000;
   // Python str.isspace(), used by the existing CLI for blank keys and safety prefixes.
@@ -81,25 +81,40 @@
     return left.length - right.length;
   }
 
+  function keyColumns(key) {
+    const keys = typeof key === 'string' ? [key] : key;
+    if (!Array.isArray(keys) || !keys.length || keys.some(c => typeof c !== 'string' || !c)) throw new Error('Choose at least one key column.');
+    if (new Set(keys).size !== keys.length) throw new Error('Choose unique key columns.');
+    return keys;
+  }
+
   function compare(left, right, key, columns = []) {
+    const keyCols = keyColumns(key), compound = keyCols.length > 1, keyParts = new Map();
     for (const data of [left, right]) {
-      if (!data.columns.includes(key)) throw new Error(data.name + ': choose a key column present in both files.');
+      if (keyCols.some(c => !data.columns.includes(c))) throw new Error(data.name + ': choose key columns present in both files.');
       if (columns.some(c => !data.columns.includes(c))) throw new Error(data.name + ': a selected value column is missing.');
     }
-    if (new Set(columns).size !== columns.length || columns.includes(key)) throw new Error('Choose unique non-key value columns.');
+    if (new Set(columns).size !== columns.length || keyCols.some(c => columns.includes(c))) throw new Error('Choose unique non-key value columns.');
     const groups = {left: new Map(), right: new Map()};
     const only = {left: [], right: []}, review = [], shared = [], changes = [];
     for (const [side, data] of [['left', left], ['right', right]]) {
       for (const record of data.records) {
-        const value = record.row[key];
-        if (blank.test(value)) review.push({side, record, reason: 'blank key', value});
+        const parts = keyCols.map(c => record.row[c]);
+        const value = compound ? JSON.stringify(parts) : parts[0];
+        if (parts.some(part => blank.test(part))) review.push({side, record, reason: 'blank key', value});
         else {
+          if (compound) keyParts.set(value, parts);
           if (!groups[side].has(value)) groups[side].set(value, []);
           groups[side].get(value).push(record);
         }
       }
     }
-    const keys = [...new Set([...groups.left.keys(), ...groups.right.keys()])].sort(codePointOrder);
+    const order = compound ? (a, b) => {
+      const x = keyParts.get(a), y = keyParts.get(b);
+      for (let i = 0; i < keyCols.length; i++) { const diff = codePointOrder(x[i], y[i]); if (diff) return diff; }
+      return 0;
+    } : codePointOrder;
+    const keys = [...new Set([...groups.left.keys(), ...groups.right.keys()])].sort(order);
     for (const value of keys) {
       const a = groups.left.get(value) || [], b = groups.right.get(value) || [];
       if (a.length > 1 || b.length > 1) {
@@ -107,7 +122,7 @@
           for (const record of records) review.push({side, record, reason: 'duplicate comparison key', value});
         }
       } else if (a.length && b.length) {
-        shared.push([value, a[0].number, b[0].number, a[0].row[key], b[0].row[key]]);
+        shared.push([value, a[0].number, b[0].number, value, value]);
         for (const column of columns) {
           if (a[0].row[column] !== b[0].row[column]) changes.push([value, a[0].number, b[0].number, column, a[0].row[column], b[0].row[column]]);
         }
@@ -126,6 +141,7 @@
   }
 
   async function makeReport(left, right, key, columns = [], delimiter = ',') {
+    const keys = keyColumns(key);
     const result = compare(left, right, key, columns);
     const files = {}, tables = {}, metadata = {};
     let escaped = 0;
@@ -156,12 +172,16 @@
       const bytes = encode(text); outputs[name] = {sha256: await sha256(bytes), bytes: bytes.length};
     }
     const manifest = {
-      version: VERSION, edition: 'offline-browser', key, normalisation: 'none', input_delimiter: delimiter, input_encoding: 'utf-8-sig',
+      version: VERSION, edition: 'offline-browser', key: keys.length === 1 ? keys[0] : keys, normalisation: 'none', input_delimiter: delimiter, input_encoding: 'utf-8-sig',
       source_record_definition: '1-based CSV data record, excluding the header; not a physical line number',
       sources: Object.fromEntries([['left', left], ['right', right]].map(([side, data]) => [side, {name: data.name, sha256: data.sha256, bytes: data.bytes, columns: data.columns}])),
       counts: result.counts, formula_like_csv_cells_prefixed_with_apostrophe: escaped, metadata_columns: metadata, outputs,
       limits: ['Shared keys do not prove two rows refer to the same person.', 'No fuzzy matching, enrichment or correction is performed.', 'Original input files are the authoritative source of original cell values.', 'Reports contain your data; keep them private.', 'Browser edition: exact keys only, UTF-8, up to 2 MiB and 50,000 data records per input.']
     };
+    if (keys.length > 1) {
+      manifest.key_columns = keys;
+      manifest.comparison_key_encoding = 'Compact JSON array of strings in key_columns order; original keys use the same encoding.';
+    }
     if (columns.length) {
       const changedKeys = new Set(result.changes.map(row => row[0])).size;
       manifest.value_comparison = {columns, method: 'Exact decoded strings; key normalisation is not applied to these values.', shared_keys_compared: result.shared.length, keys_with_changes: changedKeys, keys_without_selected_changes: result.shared.length - changedKeys, changed_cells: result.changes.length};

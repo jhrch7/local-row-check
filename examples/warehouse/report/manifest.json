@@ -1,0 +1,104 @@
+{
+  "version": "1.3.0",
+  "key": [
+    "SKU",
+    "Warehouse"
+  ],
+  "normalisation": "none",
+  "input_delimiter": ",",
+  "input_encoding": "utf-8-sig",
+  "source_record_definition": "1-based CSV data record, excluding the header; not a physical line number",
+  "sources": {
+    "left": {
+      "name": "left.csv",
+      "sha256": "8cacd4ef5776a60565cc255d5365f1ee41def6cf0bfc7e915f8802a348143602",
+      "bytes": 161,
+      "columns": [
+        "SKU",
+        "Warehouse",
+        "Price",
+        "Stock"
+      ]
+    },
+    "right": {
+      "name": "right.csv",
+      "sha256": "b5aa91bcb05e4ad7753940c046129898dd4cf5cbc55591ac330f8dcd1a13080e",
+      "bytes": 144,
+      "columns": [
+        "SKU",
+        "Warehouse",
+        "Price",
+        "Stock"
+      ]
+    }
+  },
+  "counts": {
+    "left": {
+      "input": 9,
+      "only": 1,
+      "shared": 5,
+      "review": 3
+    },
+    "right": {
+      "input": 8,
+      "only": 1,
+      "shared": 5,
+      "review": 2
+    }
+  },
+  "formula_like_csv_cells_prefixed_with_apostrophe": 0,
+  "metadata_columns": {
+    "left": [
+      "__source_record__",
+      "__comparison_key__"
+    ],
+    "right": [
+      "__source_record__",
+      "__comparison_key__"
+    ]
+  },
+  "outputs": {
+    "only_left.csv": {
+      "sha256": "bd41f1ff40fd0ef85695fb5b80ee159ae981cef8f6218b57376ef962e4f87c07",
+      "bytes": 102
+    },
+    "only_right.csv": {
+      "sha256": "b9b0b331dfd4673164c4f7b10ff43ca7a34e95792972b05b6384f07a0a3a95b3",
+      "bytes": 102
+    },
+    "review.csv": {
+      "sha256": "003c3e3e6bf1d9bfdd20361d145f658bb26f7777e3b5f4dd7070486a04a3f7ac",
+      "bytes": 718
+    },
+    "shared_keys.csv": {
+      "sha256": "018fa88ea64ae09992f7911600b00fa85f1ea5d3289b88d9e05d944aee37eeab",
+      "bytes": 402
+    },
+    "value_changes.csv": {
+      "sha256": "25daa6dae515f6a56804b1b1a7f02c7709a02bf4a2489d025df167f67bfc0f67",
+      "bytes": 200
+    }
+  },
+  "limits": [
+    "Shared keys do not prove two rows refer to the same person.",
+    "No fuzzy matching, enrichment or correction is performed.",
+    "Original input files are the authoritative source of original cell values.",
+    "Reports contain your data; keep them private."
+  ],
+  "key_columns": [
+    "SKU",
+    "Warehouse"
+  ],
+  "comparison_key_encoding": "Compact JSON array of strings in key_columns order; original keys use the same encoding.",
+  "value_comparison": {
+    "columns": [
+      "Price",
+      "Stock"
+    ],
+    "method": "Exact decoded strings; key normalisation is not applied to these values.",
+    "shared_keys_compared": 5,
+    "keys_with_changes": 3,
+    "keys_without_selected_changes": 2,
+    "changed_cells": 3
+  }
+}

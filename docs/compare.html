@@ -19,6 +19,7 @@ h2 { font-size: 1.13rem; margin: 0 0 18px; letter-spacing: -.015em; }
 .card { border: 1px solid #d4dfdb; border-radius: 14px; padding: 26px; background: white; margin: 20px 0; box-shadow: 0 2px 5px #17362b06; }
 .section-heading { display: flex; align-items: center; gap: 16px; justify-content: space-between; margin-bottom: 20px; }
 .section-heading h2 { margin: 0; }
+.example-actions { display: flex; flex-wrap: wrap; gap: 10px; }
 .file-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
 .file-label { display: block; border: 1px solid #c8d7d1; border-radius: 9px; background: #f8fbf9; padding: 16px; font-weight: 650; }
 input[type="file"] { display: block; width: 100%; margin: 10px 0; font: inherit; font-size: .85rem; }
@@ -28,7 +29,9 @@ input[type="file"]::file-selector-button { background: white; color: #244c40; bo
 .format-row span, .hint { color: #52646d; font-size: .86rem; }
 label, legend { font-weight: 600; font-size: .92rem; }
 select { font: inherit; font-size: .93rem; background: white; color: #172b35; border: 1px solid #9eb1aa; border-radius: 6px; padding: 9px 32px 9px 10px; max-width: 100%; }
-#key { display: block; min-width: min(320px, 100%); margin-top: 8px; }
+#key-list { margin: 8px 0 10px; }
+.key-row { display: flex; align-items: center; gap: 10px; margin: 8px 0; }
+.key-row select { flex: 1; width: 0; max-width: 420px; }
 select:disabled, fieldset:disabled { color: #6c777c; }
 fieldset { border: 1px solid #d4dfdb; border-radius: 8px; margin: 22px 0 12px; padding: 14px 16px 16px; }
 legend { padding: 0 5px; }
@@ -75,13 +78,13 @@ a { color: #185a83; text-underline-offset: 3px; }
 <body>
   <main>
     <header>
-      <p class="eyebrow">LOCAL ROW CHECK <span>1.2.0 · offline edition</span></p>
+      <p class="eyebrow">LOCAL ROW CHECK <span>1.3.0 · offline edition</span></p>
       <h1>Compare two CSV exports.<br>Keep the files on your device.</h1>
       <p class="intro">Find missing keys, review duplicates and blanks, and check the values you choose. No upload, account or Python installation.</p>
     </header>
 
     <section class="card" aria-labelledby="files-heading">
-      <div class="section-heading"><h2 id="files-heading">1. Choose your files</h2><button id="example" class="secondary" type="button">Try the included example</button></div>
+      <div class="section-heading"><h2 id="files-heading">1. Choose your files</h2><div class="example-actions"><button id="example" class="secondary" type="button">Try the catalogue example</button><button id="composite-example" class="secondary" type="button">Try multi-column keys</button></div></div>
       <div class="file-grid">
         <label class="file-label">Left CSV<input id="left-file" type="file" accept=".csv,.tsv,text/csv,text/tab-separated-values"><span id="left-name" class="file-name">No file selected</span></label>
         <label class="file-label">Right CSV<input id="right-file" type="file" accept=".csv,.tsv,text/csv,text/tab-separated-values"><span id="right-name" class="file-name">No file selected</span></label>
@@ -92,11 +95,12 @@ a { color: #185a83; text-underline-offset: 3px; }
 
     <section class="card" aria-labelledby="rules-heading">
       <h2 id="rules-heading">2. Choose what to compare</h2>
-      <label for="key">Key column, present in both files</label>
-      <select id="key" disabled><option value="">Choose both files first</option></select>
-      <p class="hint">Use a stable identifier, such as SKU. Keys are exact, case-sensitive text; spaces are preserved. Shared keys alone do not establish identity.</p>
+      <label for="key">Key columns, present in both files</label>
+      <div id="key-list"><div class="key-row"><select id="key" disabled><option value="">Choose both files first</option></select></div></div>
+      <button id="add-key" class="secondary" type="button" disabled>Add key column</button>
+      <p class="hint">Use one stable identifier, or combine columns such as SKU + Warehouse. Keys are exact, case-sensitive text; spaces are preserved. Shared keys alone do not establish identity.</p>
       <fieldset id="columns" disabled><legend>Values to compare <span>(optional)</span></legend><div id="column-options">Choose a key to see the available columns.</div></fieldset>
-      <p class="hint">Only unique shared keys are paired. Blank or duplicate keys go to review. Values use exact text: <code>20.00</code> and <code>20.0</code> differ.</p>
+      <p class="hint">Only unique shared keys are paired. A blank component or duplicated combination goes to review. Values use exact text: <code>20.00</code> and <code>20.0</code> differ.</p>
       <div class="actions"><button id="compare" type="button" disabled>Compare files</button><button id="reset" type="button" class="secondary">Clear selections and report</button></div>
       <p id="status" role="status" aria-live="polite">Choose two CSV files, or try the example.</p>
       <p id="error" role="alert" hidden></p>
@@ -104,6 +108,7 @@ a { color: #185a83; text-underline-offset: 3px; }
 
     <section id="results" class="card" aria-labelledby="results-heading" hidden>
       <div class="section-heading"><h2 id="results-heading">Your comparison</h2><button id="download" type="button" disabled>Download report ZIP</button></div>
+      <p id="key-summary" class="hint"></p>
       <p class="hint">For each file: input = only in this file + unique shared keys + rows for review.</p>
       <div class="table-scroll"><table class="counts"><thead><tr><th scope="col">File</th><th scope="col">Input rows</th><th scope="col">Only here</th><th scope="col">Shared</th><th scope="col">Review</th></tr></thead><tbody id="counts"></tbody></table></div>
       <p id="value-summary" class="value-summary"></p>
@@ -122,7 +127,7 @@ a { color: #185a83; text-underline-offset: 3px; }
   <script>/* Local Row Check browser core. MIT licence; no network or dependencies. */
 (function (root) {
   'use strict';
-  const VERSION = '1.2.0';
+  const VERSION = '1.3.0';
   const MAX_BYTES = 2 * 1024 * 1024;
   const MAX_RECORDS = 50000;
   // Python str.isspace(), used by the existing CLI for blank keys and safety prefixes.
@@ -202,25 +207,40 @@ a { color: #185a83; text-underline-offset: 3px; }
     return left.length - right.length;
   }
 
+  function keyColumns(key) {
+    const keys = typeof key === 'string' ? [key] : key;
+    if (!Array.isArray(keys) || !keys.length || keys.some(c => typeof c !== 'string' || !c)) throw new Error('Choose at least one key column.');
+    if (new Set(keys).size !== keys.length) throw new Error('Choose unique key columns.');
+    return keys;
+  }
+
   function compare(left, right, key, columns = []) {
+    const keyCols = keyColumns(key), compound = keyCols.length > 1, keyParts = new Map();
     for (const data of [left, right]) {
-      if (!data.columns.includes(key)) throw new Error(data.name + ': choose a key column present in both files.');
+      if (keyCols.some(c => !data.columns.includes(c))) throw new Error(data.name + ': choose key columns present in both files.');
       if (columns.some(c => !data.columns.includes(c))) throw new Error(data.name + ': a selected value column is missing.');
     }
-    if (new Set(columns).size !== columns.length || columns.includes(key)) throw new Error('Choose unique non-key value columns.');
+    if (new Set(columns).size !== columns.length || keyCols.some(c => columns.includes(c))) throw new Error('Choose unique non-key value columns.');
     const groups = {left: new Map(), right: new Map()};
     const only = {left: [], right: []}, review = [], shared = [], changes = [];
     for (const [side, data] of [['left', left], ['right', right]]) {
       for (const record of data.records) {
-        const value = record.row[key];
-        if (blank.test(value)) review.push({side, record, reason: 'blank key', value});
+        const parts = keyCols.map(c => record.row[c]);
+        const value = compound ? JSON.stringify(parts) : parts[0];
+        if (parts.some(part => blank.test(part))) review.push({side, record, reason: 'blank key', value});
         else {
+          if (compound) keyParts.set(value, parts);
           if (!groups[side].has(value)) groups[side].set(value, []);
           groups[side].get(value).push(record);
         }
       }
     }
-    const keys = [...new Set([...groups.left.keys(), ...groups.right.keys()])].sort(codePointOrder);
+    const order = compound ? (a, b) => {
+      const x = keyParts.get(a), y = keyParts.get(b);
+      for (let i = 0; i < keyCols.length; i++) { const diff = codePointOrder(x[i], y[i]); if (diff) return diff; }
+      return 0;
+    } : codePointOrder;
+    const keys = [...new Set([...groups.left.keys(), ...groups.right.keys()])].sort(order);
     for (const value of keys) {
       const a = groups.left.get(value) || [], b = groups.right.get(value) || [];
       if (a.length > 1 || b.length > 1) {
@@ -228,7 +248,7 @@ a { color: #185a83; text-underline-offset: 3px; }
           for (const record of records) review.push({side, record, reason: 'duplicate comparison key', value});
         }
       } else if (a.length && b.length) {
-        shared.push([value, a[0].number, b[0].number, a[0].row[key], b[0].row[key]]);
+        shared.push([value, a[0].number, b[0].number, value, value]);
         for (const column of columns) {
           if (a[0].row[column] !== b[0].row[column]) changes.push([value, a[0].number, b[0].number, column, a[0].row[column], b[0].row[column]]);
         }
@@ -247,6 +267,7 @@ a { color: #185a83; text-underline-offset: 3px; }
   }
 
   async function makeReport(left, right, key, columns = [], delimiter = ',') {
+    const keys = keyColumns(key);
     const result = compare(left, right, key, columns);
     const files = {}, tables = {}, metadata = {};
     let escaped = 0;
@@ -277,12 +298,16 @@ a { color: #185a83; text-underline-offset: 3px; }
       const bytes = encode(text); outputs[name] = {sha256: await sha256(bytes), bytes: bytes.length};
     }
     const manifest = {
-      version: VERSION, edition: 'offline-browser', key, normalisation: 'none', input_delimiter: delimiter, input_encoding: 'utf-8-sig',
+      version: VERSION, edition: 'offline-browser', key: keys.length === 1 ? keys[0] : keys, normalisation: 'none', input_delimiter: delimiter, input_encoding: 'utf-8-sig',
       source_record_definition: '1-based CSV data record, excluding the header; not a physical line number',
       sources: Object.fromEntries([['left', left], ['right', right]].map(([side, data]) => [side, {name: data.name, sha256: data.sha256, bytes: data.bytes, columns: data.columns}])),
       counts: result.counts, formula_like_csv_cells_prefixed_with_apostrophe: escaped, metadata_columns: metadata, outputs,
       limits: ['Shared keys do not prove two rows refer to the same person.', 'No fuzzy matching, enrichment or correction is performed.', 'Original input files are the authoritative source of original cell values.', 'Reports contain your data; keep them private.', 'Browser edition: exact keys only, UTF-8, up to 2 MiB and 50,000 data records per input.']
     };
+    if (keys.length > 1) {
+      manifest.key_columns = keys;
+      manifest.comparison_key_encoding = 'Compact JSON array of strings in key_columns order; original keys use the same encoding.';
+    }
     if (columns.length) {
       const changedKeys = new Set(result.changes.map(row => row[0])).size;
       manifest.value_comparison = {columns, method: 'Exact decoded strings; key normalisation is not applied to these values.', shared_keys_compared: result.shared.length, keys_with_changes: changedKeys, keys_without_selected_changes: result.shared.length - changedKeys, changed_cells: result.changes.length};
@@ -322,29 +347,36 @@ a { color: #185a83; text-underline-offset: 3px; }
   <script>(function () {
   'use strict';
   const $ = id => document.getElementById(id);
-  let generation = 0, left = null, right = null, report = null, downloadUrl = null, exampleBytes = null;
+  let generation = 0, left = null, right = null, report = null, downloadUrl = null, exampleBytes = null, exampleKeys = null, keySerial = 0;
   const delimiter = () => $('delimiter').value === 'tab' ? '\t' : $('delimiter').value;
   const chosenColumns = () => [...$('column-options').querySelectorAll('input:checked')].map(input => input.value);
+  const keySelectors = () => [...$('key-list').querySelectorAll('select')];
+  const chosenKeys = () => keySelectors().map(select => select.value).filter(Boolean);
+  const commonColumns = () => left && right ? left.columns.filter(c => right.columns.includes(c)) : [];
+  const ready = () => left && right && keySelectors().every(select => select.value) && new Set(chosenKeys()).size === keySelectors().length;
   function status(text) { $('status').textContent = text; }
   function invalidate() {
     generation++; report = null; $('results').hidden = true; $('download').disabled = true;
     $('error').hidden = true; $('error').textContent = '';
     $('counts').replaceChildren(); $('preview').querySelector('thead').replaceChildren(); $('preview').querySelector('tbody').replaceChildren();
-    $('value-summary').textContent = ''; $('hashes').textContent = '';
+    $('value-summary').textContent = ''; $('key-summary').textContent = ''; $('hashes').textContent = '';
     if (downloadUrl) { URL.revokeObjectURL(downloadUrl); downloadUrl = null; }
-    $('compare').disabled = !(left && right && $('key').value);
+    $('compare').disabled = !ready();
   }
   function showError(error) {
     $('error').textContent = error.message || String(error); $('error').hidden = false; status('No report created. Check the files and try again.');
   }
   function resetRules() {
+    for (const row of [...$('key-list').children].slice(1)) row.remove();
+    keySerial = 0; $('add-key').disabled = true;
     $('key').replaceChildren(new Option('Choose both files first', '')); $('key').disabled = true;
     $('columns').disabled = true; $('column-options').textContent = 'Choose a key to see the available columns.';
   }
   function makeColumns(selected = []) {
-    $('column-options').replaceChildren(); $('columns').disabled = !$('key').value;
-    if (!$('key').value) { $('column-options').textContent = 'Choose a key to see the available columns.'; return; }
-    const available = left.columns.filter(c => right.columns.includes(c) && c !== $('key').value);
+    const keys = chosenKeys();
+    $('column-options').replaceChildren(); $('columns').disabled = !ready();
+    if (!keys.length) { $('column-options').textContent = 'Choose a key to see the available columns.'; return; }
+    const available = commonColumns().filter(c => !keys.includes(c));
     if (!available.length) $('column-options').textContent = 'No other shared columns. This will compare keys only.';
     for (const column of available) {
       const label = document.createElement('label'), input = document.createElement('input');
@@ -352,6 +384,31 @@ a { color: #185a83; text-underline-offset: 3px; }
       input.addEventListener('change', () => { invalidate(); status('Options changed. Compare files to create a new report.'); });
       label.append(input, document.createTextNode(column)); $('column-options').append(label);
     }
+  }
+  function syncKeyOptions() {
+    const chosen = chosenKeys(), selectors = keySelectors();
+    for (const select of selectors) {
+      for (const option of select.options) option.disabled = Boolean(option.value && option.value !== select.value && chosen.includes(option.value));
+    }
+    $('add-key').disabled = !(left && right) || selectors.some(select => !select.value) || selectors.length >= commonColumns().length;
+  }
+  function keysChanged(selected = chosenColumns()) {
+    syncKeyOptions(); invalidate(); makeColumns(selected);
+    status(ready() ? 'Key columns changed. Check the value columns, then compare files.' : 'Choose each key column before comparing files.');
+  }
+  function addKey(value = '') {
+    const row = document.createElement('div'), select = document.createElement('select'), remove = document.createElement('button');
+    row.className = 'key-row'; select.id = 'extra-key-' + (++keySerial);
+    select.setAttribute('aria-label', 'Additional key column ' + keySerial);
+    select.append(new Option('Choose another key column', ''), ...commonColumns().map(c => new Option(c, c))); select.value = value;
+    select.addEventListener('change', () => keysChanged());
+    remove.type = 'button'; remove.className = 'secondary'; remove.textContent = 'Remove';
+    remove.setAttribute('aria-label', 'Remove additional key column ' + keySerial);
+    remove.addEventListener('click', () => {
+      const selected = chosenColumns(), previous = row.previousElementSibling.querySelector('select');
+      row.remove(); keysChanged(selected); previous.focus();
+    });
+    row.append(select, remove); $('key-list').append(row); return select;
   }
   async function loadFiles(fromExample = false) {
     left = right = null; invalidate(); resetRules(); const token = generation;
@@ -370,10 +427,11 @@ a { color: #185a83; text-underline-offset: 3px; }
       if (!common.length) throw new Error('No shared column header. Choose files with a common key column, using exactly the same header text.');
       [left, right] = loaded;
       $('key').replaceChildren(new Option('Choose a key column', ''), ...common.map(c => new Option(c, c))); $('key').disabled = false;
-      if (fromExample && common.includes('SKU')) {
-        $('key').value = 'SKU'; makeColumns(['Price', 'Stock']); $('compare').disabled = false;
+      if (fromExample && exampleKeys?.every(c => common.includes(c))) {
+        $('key').value = exampleKeys[0]; for (const column of exampleKeys.slice(1)) addKey(column);
+        syncKeyOptions(); makeColumns(['Price', 'Stock']); $('compare').disabled = !ready();
         status('Example loaded. Compare files to inspect its three changed cells and review rows.');
-      } else status('Files read locally. Choose the key column and optional value columns.');
+      } else { syncKeyOptions(); status('Files read locally. Choose the key columns and optional value columns.'); }
     } catch (error) {
       if (token !== generation) return;
       left = right = null; resetRules(); $('compare').disabled = true; showError(error);
@@ -390,6 +448,8 @@ a { color: #185a83; text-underline-offset: 3px; }
   }
   function showReport() {
     const manifest = report.manifest;
+    const keys = manifest.key_columns || [manifest.key];
+    $('key-summary').textContent = 'Key column' + (keys.length > 1 ? 's (in order)' : '') + ': ' + keys.join(' + ') + (keys.length > 1 ? '. Report keys are JSON arrays in this order.' : '.');
     for (const side of ['left', 'right']) {
       const count = manifest.counts[side], tr = document.createElement('tr');
       for (const value of [side === 'left' ? 'Left' : 'Right', count.input, count.only, count.shared, count.review]) tr.append(cell('td', value));
@@ -406,18 +466,20 @@ a { color: #185a83; text-underline-offset: 3px; }
     $('download').disabled = false; $('results').hidden = false;
   }
   $('compare').addEventListener('click', async () => {
-    if (!(left && right && $('key').value)) return;
+    if (!ready()) return;
     invalidate(); const token = generation; $('compare').disabled = true; status('Comparing and hashing the report on this device…');
     try {
-      const result = await RowCheck.makeReport(left, right, $('key').value, chosenColumns(), delimiter());
+      const keys = chosenKeys();
+      const result = await RowCheck.makeReport(left, right, keys.length === 1 ? keys[0] : keys, chosenColumns(), delimiter());
       if (token !== generation) return;
       report = result; showReport(); status('Comparison complete. Review the results or download the report.');
     } catch (error) { if (token === generation) showError(error); }
     finally { if (token === generation) $('compare').disabled = false; }
   });
-  $('key').addEventListener('change', () => { invalidate(); makeColumns(); status('Choose value columns if needed, then compare files.'); });
-  $('left-file').addEventListener('change', () => { exampleBytes = null; loadFiles(); });
-  $('right-file').addEventListener('change', () => { exampleBytes = null; loadFiles(); });
+  $('key').addEventListener('change', () => keysChanged());
+  $('add-key').addEventListener('click', () => { const selected = chosenColumns(), select = addKey(); keysChanged(selected); select.focus(); });
+  $('left-file').addEventListener('change', () => { exampleBytes = exampleKeys = null; loadFiles(); });
+  $('right-file').addEventListener('change', () => { exampleBytes = exampleKeys = null; loadFiles(); });
   $('delimiter').addEventListener('change', () => loadFiles(Boolean(exampleBytes)));
   $('preview-file').addEventListener('change', preview);
   $('download').addEventListener('click', () => {
@@ -425,12 +487,19 @@ a { color: #185a83; text-underline-offset: 3px; }
     const link = document.createElement('a'); link.href = downloadUrl; link.download = 'rowcheck-report.zip'; link.click();
   });
   $('reset').addEventListener('click', () => {
-    left = right = null; exampleBytes = null; $('left-file').value = ''; $('right-file').value = ''; invalidate(); resetRules();
+    left = right = null; exampleBytes = exampleKeys = null; $('left-file').value = ''; $('right-file').value = ''; invalidate(); resetRules();
     $('left-name').textContent = $('right-name').textContent = 'No file selected'; status('Selections and report cleared. Choose two CSV files, or try the example.');
   });
   $('example').addEventListener('click', () => {
     $('left-file').value = ''; $('right-file').value = ''; $('delimiter').value = ',';
     exampleBytes = [new File(["SKU,Price,Stock,Title\nA-001,10.00,4,Widget\nA-002,20.00,3,Cable\nA-003,5.00,7,Battery\nA-003,6.00,8,Battery duplicate\n,9.00,2,Missing SKU\nA-004,2.00,1,Only left\nA-006,1.00,9,Tape\n"], 'catalog-left.csv', {type: 'text/csv'}), new File(["SKU,Price,Stock,Title\nA-001,12.00,4,Widget\nA-002,20.0,5,Cable\nA-003,5.00,7,Battery\nA-005,3.00,2,Only right\nA-006,1.00,9,Renamed tape\n"], 'catalog-right.csv', {type: 'text/csv'})];
+    exampleKeys = ['SKU'];
+    loadFiles(true);
+  });
+  $('composite-example').addEventListener('click', () => {
+    $('left-file').value = ''; $('right-file').value = ''; $('delimiter').value = ',';
+    exampleBytes = [new File(["SKU,Warehouse,Price,Stock\nA,North,10.00,5\nA,South,11.00,7\nB,North,20.00,2\nC,West,30.00,4\nDUP,East,8.00,1\nDUP,East,9.00,2\nBLANK,,1.00,1\nA|B,C,3.00,1\nA,B|C,4.00,1\n"], 'warehouse-left.csv', {type: 'text/csv'}), new File(["SKU,Warehouse,Price,Stock\nA,North,10.00,6\nA,South,11.0,7\nB,North,20.00,2\nD,West,40.00,1\nDUP,East,8.00,1\n,North,1.00,1\nA|B,C,3.00,1\nA,B|C,4.50,1\n"], 'warehouse-right.csv', {type: 'text/csv'})];
+    exampleKeys = ['SKU', 'Warehouse'];
     loadFiles(true);
   });
 })();

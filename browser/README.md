@@ -1,7 +1,7 @@
 # Offline browser edition
 
 Download **rowcheck-offline.html** from the
-[1.2.0 release](https://github.com/jhrch7/local-row-check/releases/tag/v1.2.0).
+[1.3.0 release](https://github.com/jhrch7/local-row-check/releases/tag/v1.3.0).
 Save the file and open it in a current Chromium browser. It is a complete local
 file: no server, Python, installation, sign-in or network connection is needed.
 
@@ -11,10 +11,13 @@ code makes no file-upload or analytics requests. Use the download for fully
 offline work. Rebuilding also synchronizes the tool and actual preview into
 `docs/`, the project site's publishing directory.
 
-1. Try the included synthetic example, or choose a left and right CSV file.
+1. Try the catalogue or multi-column synthetic example, or choose a left and
+   right CSV file.
 2. Choose the delimiter used in both files: comma, semicolon or tab.
-3. Choose the exact key header shared by both files. Optionally select non-key
-   value columns. Changing a choice clears the old report.
+3. Choose the exact key header shared by both files. To match on a combination
+   such as SKU + Warehouse, select **Add key column** and choose another header.
+   Choose every key before comparing. Optionally select non-key value columns.
+   Changing a choice clears the old report and download.
 4. Select **Compare files**. Review the counts and the report previews.
 5. Select **Download report ZIP** and keep it private.
 
@@ -24,6 +27,14 @@ source/output SHA-256 hashes and byte sizes. Previews show the original values;
 CSV downloads prefix formula-like cells with an apostrophe, just like the CLI.
 Record numbers count CSV data records, not physical lines. The source files are
 never modified.
+
+With multi-column keys, a blank component sends the row to review. A duplicated
+complete combination sends all its rows on both sides to review. Matching never
+joins components with a delimiter. Keys in downloaded reports are compact JSON
+arrays, for example `["A","North"]`, and `key_columns` in the manifest records
+their order. Single-column reports keep the existing scalar key format.
+The included warehouse example has five unique shared combinations, five review
+rows across both inputs, and three changed cells.
 
 ## Deliberate limits
 
@@ -43,7 +54,7 @@ never modified.
   the app's current references and hides its results. This is not a secure-erasure
   guarantee. Downloaded reports remain on your device.
 - The file uses the File API and Web Crypto. The exercised browser is Chrome
-  156.0.8078.74 on macOS at 1280px and 390px viewports. Other browsers, operating
+  156.0.8078.80 on macOS at 1280px and 390px viewports. Other browsers, operating
   systems and physical phones have not been exercised for this edition.
 
 The source and offline file are free under the MIT licence. The existing
@@ -54,7 +65,7 @@ This release establishes no paid order or earnings.
 ## Build and verify
 
 No third-party packages are required. Source changes live in `browser/`; the
-downloadable HTML embeds exactly those files and the existing synthetic example.
+downloadable HTML embeds exactly those files and both synthetic examples.
 
 ```sh
 python3 -B browser/build.py
@@ -64,10 +75,11 @@ node browser/check_ui.cjs --chrome /path/to/Chrome --work-dir /your/new/task-own
 node browser/check_ui.cjs --chrome /path/to/Chrome --work-dir /your/new/task-owned/site-check --site-url https://jhrch7.github.io/local-row-check/
 ```
 
-The parity check uses the existing Python engine as the oracle for nine named
+The parity check uses the Python engine as the oracle for thirteen named
 boundary cases, comparing every generated CSV byte/hash, counts, metadata and
 ZIP integrity. Browser tests exercise the actual file, local file inputs,
-example, previews, downloads, invalidation, pending-read reset and reload.
+examples, previews, downloads, add/remove key controls, invalidation, pending-read
+and pending-report reset, and reload.
 `check_ui.cjs` creates a **new isolated headless profile**, closes its own browser
 and removes only that profile. It does not access an existing browser session.
 Logs, synthetic downloads and screenshots remain in the new work directory.
@@ -75,6 +87,9 @@ The optional site check uses this project's public Pages site, verifies that its
 HTML download matches the standalone file, and allows only the declared project
 GET resources. It does not use an account or an existing browser session.
 
-The seven core tests and nine parity cases passed with Node 24.17.0 and Python
-3.14 on macOS. Browser screenshots were inspected; this is automated verification
+The ten core tests and thirteen parity cases passed with Node 24.17.0 and Python
+3.14.6 on macOS. Compound-key cases cover delimiter collisions, Unicode and
+escaped-component sorting, blank components, duplicated combinations and
+header-only inputs. Single-key CSV outputs were also checked against the old
+Python engine on nine cases. Browser screenshots were inspected; this is automated verification
 of the declared behavior, not an independent security audit or an adoption claim.

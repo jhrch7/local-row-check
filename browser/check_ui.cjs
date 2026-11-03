@@ -132,6 +132,7 @@ const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
     for (let i = 0; i < 100; i++) { if (await fs.stat(path.join(downloads, 'rowcheck-report.zip')).catch(() => null)) break; await delay(50); }
     const zip = await fs.readFile(path.join(downloads, 'rowcheck-report.zip'));
     assert.ok(zip.length > 1000);
+    await fs.rename(path.join(downloads, 'rowcheck-report.zip'), path.join(downloads, 'catalog-report.zip'));
     checks.push('actual report ZIP downloaded through the browser button');
 
     await evaluate("document.getElementById('preview-file').value='review.csv';document.getElementById('preview-file').dispatchEvent(new Event('change'))");
@@ -139,6 +140,50 @@ const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
     await evaluate("const checkbox=document.querySelector('#column-options input');checkbox.checked=!checkbox.checked;checkbox.dispatchEvent(new Event('change'))");
     assert.deepEqual(await evaluate("({hidden:document.getElementById('results').hidden, disabled:document.getElementById('download').disabled, rows:document.querySelectorAll('#counts tr').length})"), {hidden: true, disabled: true, rows: 0});
     checks.push('review preview retains all ambiguous fixture rows; changed options invalidate old results/download');
+
+    await evaluate("document.getElementById('composite-example').click()");
+    await until("document.querySelectorAll('#key-list select').length===2 && document.querySelector('#key-list select:last-of-type') && !document.getElementById('compare').disabled", 'multi-column example loaded');
+    assert.deepEqual(await evaluate("[...document.querySelectorAll('#key-list select')].map(s=>s.value)"), ['SKU', 'Warehouse']);
+    await evaluate("document.getElementById('compare').click()");
+    await until("!document.getElementById('results').hidden", 'multi-column comparison');
+    assert.deepEqual(await evaluate("[...document.querySelectorAll('#counts tr')].map(tr=>[...tr.children].slice(1).map(td=>Number(td.textContent)))"), [[9, 1, 5, 3], [8, 1, 5, 2]]);
+    assert.match(await evaluate("document.getElementById('value-summary').textContent"), /5 unique shared keys compared · 3 keys with changes · 3 changed cells/);
+    assert.match(await evaluate("document.getElementById('key-summary').textContent"), /SKU \+ Warehouse.*JSON arrays/);
+    await capture('composite-desktop.png');
+    const compoundBox = await evaluate("(()=>{const r=document.getElementById('results').getBoundingClientRect();return {x:r.x+scrollX,y:r.y+scrollY,width:r.width,height:r.height,scale:1}})()");
+    const compoundCapture = await rpc('Page.captureScreenshot', {format: 'png', captureBeyondViewport: true, clip: compoundBox});
+    await fs.writeFile(path.join(work, 'composite-results.png'), Buffer.from(compoundCapture.data, 'base64'));
+    await evaluate("document.getElementById('download').click()");
+    for (let i = 0; i < 100; i++) { if (await fs.stat(path.join(downloads, 'rowcheck-report.zip')).catch(() => null)) break; await delay(50); }
+    const compoundZip = await fs.readFile(path.join(downloads, 'rowcheck-report.zip'));
+    await fs.rename(path.join(downloads, 'rowcheck-report.zip'), path.join(downloads, 'compound-report.zip'));
+    checks.push('multi-column example shows independently expected counts, tuple encoding, three changed cells and a downloaded ZIP');
+    await rpc('Emulation.setDeviceMetricsOverride', {width: 390, height: 844, deviceScaleFactor: 1, mobile: false});
+    assert.equal(await evaluate('document.documentElement.scrollWidth <= innerWidth'), true);
+    await capture('composite-narrow.png');
+    await rpc('Emulation.setDeviceMetricsOverride', {width: 1280, height: 1100, deviceScaleFactor: 1, mobile: false});
+
+    await evaluate("document.getElementById('add-key').click()");
+    assert.equal(await evaluate("document.getElementById('compare').disabled && document.getElementById('results').hidden && document.getElementById('download').disabled && document.getElementById('columns').disabled && document.getElementById('add-key').disabled"), true);
+    assert.deepEqual(await evaluate("[...document.querySelectorAll('#column-options input:checked')].map(c=>c.value)"), ['Price', 'Stock']);
+    assert.equal(await evaluate("document.activeElement.id==='extra-key-2' && [...document.activeElement.options].filter(o=>['SKU','Warehouse'].includes(o.value)).every(o=>o.disabled)"), true);
+    await evaluate("document.getElementById('extra-key-2').value='Price';document.getElementById('extra-key-2').dispatchEvent(new Event('change'))");
+    assert.deepEqual(await evaluate("[...document.querySelectorAll('#column-options input')].map(c=>[c.value,c.checked])"), [['Stock', true]]);
+    await evaluate("document.getElementById('extra-key-2').nextElementSibling.click();document.getElementById('add-key').click()");
+    assert.equal(await evaluate("document.activeElement.id==='extra-key-3' && document.querySelectorAll('#extra-key-2').length===0"), true);
+    await evaluate("document.getElementById('extra-key-3').nextElementSibling.click()");
+    assert.equal(await evaluate("document.activeElement.id==='extra-key-1' && !document.getElementById('compare').disabled && !document.getElementById('columns').disabled"), true);
+    assert.deepEqual(await evaluate("[...document.querySelectorAll('#column-options input')].map(c=>[c.value,c.checked])"), [['Price', false], ['Stock', true]]);
+    checks.push('adding/removing keys requires an explicit unique choice, preserves valid value choices, excludes key values, invalidates old results and restores keyboard focus');
+
+    await evaluate("window.originalMakeReport=RowCheck.makeReport;RowCheck.makeReport=(...args)=>new Promise(resolve=>window.releaseReport=()=>resolve(window.originalMakeReport(...args)));document.getElementById('compare').click()");
+    await until("typeof window.releaseReport==='function'", 'delayed report pending');
+    await evaluate("document.getElementById('add-key').click();window.releaseReport();RowCheck.makeReport=window.originalMakeReport");
+    await delay(100);
+    assert.equal(await evaluate("document.getElementById('results').hidden && document.getElementById('download').disabled && document.getElementById('compare').disabled"), true);
+    await evaluate("document.getElementById('reset').click()");
+    assert.equal(await evaluate("document.querySelectorAll('#key-list select').length===1 && document.getElementById('key').disabled && document.getElementById('add-key').disabled"), true);
+    checks.push('changing key controls while report hashing is pending cannot restore stale results; reset removes additional controls');
 
     const leftSemi = path.join(work, 'left-semicolon.csv'), rightSemi = path.join(work, 'right-semicolon.csv'), bad = path.join(work, 'ragged.csv');
     await fs.writeFile(leftSemi, 'ID;V\na;"old;value"\n');
@@ -188,7 +233,7 @@ const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
     }
     assert.deepEqual(exceptions, []);
     checks.push('reload starts empty; only declared project GET resources and no uncaught browser exceptions observed');
-    receipt = {state: 'passed', browser: version.product, userAgent: version.userAgent, siteUrl: site, appSha256: createHash('sha256').update(await fs.readFile(app)).digest('hex'), checks, networkRequests: requests, requestMethods, externalHttpRequests: external, downloadedZipBytes: zip.length, downloadedZipSha256: createHash('sha256').update(zip).digest('hex'), profile: 'New isolated headless profile only; removed after process exit', SafariUsed: false};
+    receipt = {state: 'passed', browser: version.product, userAgent: version.userAgent, siteUrl: site, appSha256: createHash('sha256').update(await fs.readFile(app)).digest('hex'), checks, networkRequests: requests, requestMethods, externalHttpRequests: external, downloadedZipBytes: zip.length, downloadedZipSha256: createHash('sha256').update(zip).digest('hex'), compoundZipBytes: compoundZip.length, compoundZipSha256: createHash('sha256').update(compoundZip).digest('hex'), profile: 'New isolated headless profile only; removed after process exit', SafariUsed: false};
     await fs.writeFile(path.join(work, 'ui-results.json'), JSON.stringify(receipt, null, 2) + '\n');
     console.log(JSON.stringify(receipt, null, 2));
   } finally {

@@ -1,29 +1,36 @@
 (function () {
   'use strict';
   const $ = id => document.getElementById(id);
-  let generation = 0, left = null, right = null, report = null, downloadUrl = null, exampleBytes = null;
+  let generation = 0, left = null, right = null, report = null, downloadUrl = null, exampleBytes = null, exampleKeys = null, keySerial = 0;
   const delimiter = () => $('delimiter').value === 'tab' ? '\t' : $('delimiter').value;
   const chosenColumns = () => [...$('column-options').querySelectorAll('input:checked')].map(input => input.value);
+  const keySelectors = () => [...$('key-list').querySelectorAll('select')];
+  const chosenKeys = () => keySelectors().map(select => select.value).filter(Boolean);
+  const commonColumns = () => left && right ? left.columns.filter(c => right.columns.includes(c)) : [];
+  const ready = () => left && right && keySelectors().every(select => select.value) && new Set(chosenKeys()).size === keySelectors().length;
   function status(text) { $('status').textContent = text; }
   function invalidate() {
     generation++; report = null; $('results').hidden = true; $('download').disabled = true;
     $('error').hidden = true; $('error').textContent = '';
     $('counts').replaceChildren(); $('preview').querySelector('thead').replaceChildren(); $('preview').querySelector('tbody').replaceChildren();
-    $('value-summary').textContent = ''; $('hashes').textContent = '';
+    $('value-summary').textContent = ''; $('key-summary').textContent = ''; $('hashes').textContent = '';
     if (downloadUrl) { URL.revokeObjectURL(downloadUrl); downloadUrl = null; }
-    $('compare').disabled = !(left && right && $('key').value);
+    $('compare').disabled = !ready();
   }
   function showError(error) {
     $('error').textContent = error.message || String(error); $('error').hidden = false; status('No report created. Check the files and try again.');
   }
   function resetRules() {
+    for (const row of [...$('key-list').children].slice(1)) row.remove();
+    keySerial = 0; $('add-key').disabled = true;
     $('key').replaceChildren(new Option('Choose both files first', '')); $('key').disabled = true;
     $('columns').disabled = true; $('column-options').textContent = 'Choose a key to see the available columns.';
   }
   function makeColumns(selected = []) {
-    $('column-options').replaceChildren(); $('columns').disabled = !$('key').value;
-    if (!$('key').value) { $('column-options').textContent = 'Choose a key to see the available columns.'; return; }
-    const available = left.columns.filter(c => right.columns.includes(c) && c !== $('key').value);
+    const keys = chosenKeys();
+    $('column-options').replaceChildren(); $('columns').disabled = !ready();
+    if (!keys.length) { $('column-options').textContent = 'Choose a key to see the available columns.'; return; }
+    const available = commonColumns().filter(c => !keys.includes(c));
     if (!available.length) $('column-options').textContent = 'No other shared columns. This will compare keys only.';
     for (const column of available) {
       const label = document.createElement('label'), input = document.createElement('input');
@@ -31,6 +38,31 @@
       input.addEventListener('change', () => { invalidate(); status('Options changed. Compare files to create a new report.'); });
       label.append(input, document.createTextNode(column)); $('column-options').append(label);
     }
+  }
+  function syncKeyOptions() {
+    const chosen = chosenKeys(), selectors = keySelectors();
+    for (const select of selectors) {
+      for (const option of select.options) option.disabled = Boolean(option.value && option.value !== select.value && chosen.includes(option.value));
+    }
+    $('add-key').disabled = !(left && right) || selectors.some(select => !select.value) || selectors.length >= commonColumns().length;
+  }
+  function keysChanged(selected = chosenColumns()) {
+    syncKeyOptions(); invalidate(); makeColumns(selected);
+    status(ready() ? 'Key columns changed. Check the value columns, then compare files.' : 'Choose each key column before comparing files.');
+  }
+  function addKey(value = '') {
+    const row = document.createElement('div'), select = document.createElement('select'), remove = document.createElement('button');
+    row.className = 'key-row'; select.id = 'extra-key-' + (++keySerial);
+    select.setAttribute('aria-label', 'Additional key column ' + keySerial);
+    select.append(new Option('Choose another key column', ''), ...commonColumns().map(c => new Option(c, c))); select.value = value;
+    select.addEventListener('change', () => keysChanged());
+    remove.type = 'button'; remove.className = 'secondary'; remove.textContent = 'Remove';
+    remove.setAttribute('aria-label', 'Remove additional key column ' + keySerial);
+    remove.addEventListener('click', () => {
+      const selected = chosenColumns(), previous = row.previousElementSibling.querySelector('select');
+      row.remove(); keysChanged(selected); previous.focus();
+    });
+    row.append(select, remove); $('key-list').append(row); return select;
   }
   async function loadFiles(fromExample = false) {
     left = right = null; invalidate(); resetRules(); const token = generation;
@@ -49,10 +81,11 @@
       if (!common.length) throw new Error('No shared column header. Choose files with a common key column, using exactly the same header text.');
       [left, right] = loaded;
       $('key').replaceChildren(new Option('Choose a key column', ''), ...common.map(c => new Option(c, c))); $('key').disabled = false;
-      if (fromExample && common.includes('SKU')) {
-        $('key').value = 'SKU'; makeColumns(['Price', 'Stock']); $('compare').disabled = false;
+      if (fromExample && exampleKeys?.every(c => common.includes(c))) {
+        $('key').value = exampleKeys[0]; for (const column of exampleKeys.slice(1)) addKey(column);
+        syncKeyOptions(); makeColumns(['Price', 'Stock']); $('compare').disabled = !ready();
         status('Example loaded. Compare files to inspect its three changed cells and review rows.');
-      } else status('Files read locally. Choose the key column and optional value columns.');
+      } else { syncKeyOptions(); status('Files read locally. Choose the key columns and optional value columns.'); }
     } catch (error) {
       if (token !== generation) return;
       left = right = null; resetRules(); $('compare').disabled = true; showError(error);
@@ -69,6 +102,8 @@
   }
   function showReport() {
     const manifest = report.manifest;
+    const keys = manifest.key_columns || [manifest.key];
+    $('key-summary').textContent = 'Key column' + (keys.length > 1 ? 's (in order)' : '') + ': ' + keys.join(' + ') + (keys.length > 1 ? '. Report keys are JSON arrays in this order.' : '.');
     for (const side of ['left', 'right']) {
       const count = manifest.counts[side], tr = document.createElement('tr');
       for (const value of [side === 'left' ? 'Left' : 'Right', count.input, count.only, count.shared, count.review]) tr.append(cell('td', value));
@@ -85,18 +120,20 @@
     $('download').disabled = false; $('results').hidden = false;
   }
   $('compare').addEventListener('click', async () => {
-    if (!(left && right && $('key').value)) return;
+    if (!ready()) return;
     invalidate(); const token = generation; $('compare').disabled = true; status('Comparing and hashing the report on this device…');
     try {
-      const result = await RowCheck.makeReport(left, right, $('key').value, chosenColumns(), delimiter());
+      const keys = chosenKeys();
+      const result = await RowCheck.makeReport(left, right, keys.length === 1 ? keys[0] : keys, chosenColumns(), delimiter());
       if (token !== generation) return;
       report = result; showReport(); status('Comparison complete. Review the results or download the report.');
     } catch (error) { if (token === generation) showError(error); }
     finally { if (token === generation) $('compare').disabled = false; }
   });
-  $('key').addEventListener('change', () => { invalidate(); makeColumns(); status('Choose value columns if needed, then compare files.'); });
-  $('left-file').addEventListener('change', () => { exampleBytes = null; loadFiles(); });
-  $('right-file').addEventListener('change', () => { exampleBytes = null; loadFiles(); });
+  $('key').addEventListener('change', () => keysChanged());
+  $('add-key').addEventListener('click', () => { const selected = chosenColumns(), select = addKey(); keysChanged(selected); select.focus(); });
+  $('left-file').addEventListener('change', () => { exampleBytes = exampleKeys = null; loadFiles(); });
+  $('right-file').addEventListener('change', () => { exampleBytes = exampleKeys = null; loadFiles(); });
   $('delimiter').addEventListener('change', () => loadFiles(Boolean(exampleBytes)));
   $('preview-file').addEventListener('change', preview);
   $('download').addEventListener('click', () => {
@@ -104,12 +141,19 @@
     const link = document.createElement('a'); link.href = downloadUrl; link.download = 'rowcheck-report.zip'; link.click();
   });
   $('reset').addEventListener('click', () => {
-    left = right = null; exampleBytes = null; $('left-file').value = ''; $('right-file').value = ''; invalidate(); resetRules();
+    left = right = null; exampleBytes = exampleKeys = null; $('left-file').value = ''; $('right-file').value = ''; invalidate(); resetRules();
     $('left-name').textContent = $('right-name').textContent = 'No file selected'; status('Selections and report cleared. Choose two CSV files, or try the example.');
   });
   $('example').addEventListener('click', () => {
     $('left-file').value = ''; $('right-file').value = ''; $('delimiter').value = ',';
     exampleBytes = [new File([/* ROWCHECK_EXAMPLE_LEFT */], 'catalog-left.csv', {type: 'text/csv'}), new File([/* ROWCHECK_EXAMPLE_RIGHT */], 'catalog-right.csv', {type: 'text/csv'})];
+    exampleKeys = ['SKU'];
+    loadFiles(true);
+  });
+  $('composite-example').addEventListener('click', () => {
+    $('left-file').value = ''; $('right-file').value = ''; $('delimiter').value = ',';
+    exampleBytes = [new File([/* ROWCHECK_WAREHOUSE_LEFT */], 'warehouse-left.csv', {type: 'text/csv'}), new File([/* ROWCHECK_WAREHOUSE_RIGHT */], 'warehouse-right.csv', {type: 'text/csv'})];
+    exampleKeys = ['SKU', 'Warehouse'];
     loadFiles(true);
   });
 })();

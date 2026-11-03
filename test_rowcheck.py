@@ -23,9 +23,13 @@ class RowCheckTests(unittest.TestCase):
         return path
 
     def run_tool(self, left, right, *options):
-        output = self.root / "reports"
+        return self.run_keys(left, right, ["Name"], *options)
+
+    def run_keys(self, left, right, keys, *options, report="reports"):
+        output = self.root / report
         result = subprocess.run([sys.executable, str(SCRIPT), str(left), str(right),
-                                 "--key", "Name", "--out", str(output), *options],
+                                 *[part for key in keys for part in ("--key", key)],
+                                 "--out", str(output), *options],
                                 capture_output=True, text=True)
         return result, output
 
@@ -176,6 +180,73 @@ class RowCheckTests(unittest.TestCase):
         self.assertEqual(len(self.read_csv(out / "value_changes.csv")), 1)
         self.assertEqual(m["value_comparison"]["shared_keys_compared"], 0)
         self.assertEqual(m["value_comparison"]["changed_cells"], 0)
+
+    def test_multi_column_example_preserves_rows_and_reports_three_changes(self):
+        fixture = SCRIPT.parent / "examples" / "warehouse"
+        result, out = self.run_keys(fixture / "left.csv", fixture / "right.csv", ["SKU", "Warehouse"],
+                                    "--compare-columns", "Price", "Stock")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        m = json.loads((out / "manifest.json").read_text())
+        self.assertEqual(m["key"], ["SKU", "Warehouse"])
+        self.assertEqual(m["key_columns"], ["SKU", "Warehouse"])
+        self.assertEqual(m["counts"], {"left": {"input": 9, "only": 1, "shared": 5, "review": 3},
+                                      "right": {"input": 8, "only": 1, "shared": 5, "review": 2}})
+        changes = self.read_csv(out / "value_changes.csv")[1:]
+        self.assertEqual([(json.loads(r[0]), r[3]) for r in changes],
+                         [(["A", "B|C"], "Price"), (["A", "North"], "Stock"), (["A", "South"], "Price")])
+        self.assertEqual(m["value_comparison"]["keys_with_changes"], 3)
+        self.assertEqual(m["value_comparison"]["changed_cells"], 3)
+        review = self.read_csv(out / "review.csv")[1:]
+        self.assertEqual(sum(r[2] == "blank key" for r in review), 2)
+        self.assertEqual(sum(r[2] == "duplicate comparison key" for r in review), 3)
+
+    def test_compound_keys_are_structured_and_sorted_by_components(self):
+        keys = [["A|B", "C"], ["A", "B|C"], ['q"', "line\nbreak"],
+                ["a\t", "x"], ["a\n", "x"], ["\ue000", "x"], ["😀", "x"], ["=x", "z"]]
+        a = self.write("a.csv", [["Name", "Region, label", "V"], *[k + ["before"] for k in keys]])
+        b = self.write("b.csv", [["V", "Region, label", "Name"], *[["after", k[1], k[0]] for k in reversed(keys)]])
+        result, out = self.run_keys(a, b, ["Name", "Region, label"], "--compare-columns", "V")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        shared = self.read_csv(out / "shared_keys.csv")[1:]
+        self.assertEqual([json.loads(r[0]) for r in shared], sorted(keys))
+        self.assertEqual([json.loads(r[3]) for r in shared], sorted(keys))
+        self.assertEqual([json.loads(r[4]) for r in shared], sorted(keys))
+        self.assertEqual(len(self.read_csv(out / "value_changes.csv")) - 1, len(keys))
+
+    def test_multi_key_normalisation_applies_to_each_component_only(self):
+        for mode, before in (("trim", [" Sam ", " South "]), ("fold", ["Ｓam", " SOUTH "])):
+            with self.subTest(mode=mode):
+                a = self.write("a.csv", [["Name", "Warehouse", "V"], before + ["1 "]])
+                b = self.write("b.csv", [["Name", "Warehouse", "V"], ["Sam", "South", "1"]])
+                result, out = self.run_keys(a, b, ["Name", "Warehouse"], "--normalise", mode,
+                                            "--compare-columns", "V", report=mode)
+                self.assertEqual(result.returncode, 0, result.stderr)
+                shared = self.read_csv(out / "shared_keys.csv")[1:]
+                self.assertEqual(len(shared), 1)
+                self.assertEqual(json.loads(shared[0][3]), before)
+                self.assertEqual(json.loads(shared[0][4]), ["Sam", "South"])
+                self.assertEqual(self.read_csv(out / "value_changes.csv")[1][-2:], ["1 ", "1"])
+
+    def test_fold_component_collisions_and_blanks_withhold_both_sides(self):
+        a = self.write("a.csv", [["Name", "Warehouse", "V"], ["Ａlex", "North", "1"],
+                                 ["alex", "north", "2"], ["Blank", "\u0085", "3"], ["", "North", "4"]])
+        b = self.write("b.csv", [["Name", "Warehouse", "V"], ["ALEX", "NORTH", "9"]])
+        result, out = self.run_keys(a, b, ["Name", "Warehouse"], "--normalise", "fold", "--compare-columns", "V")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        m = json.loads((out / "manifest.json").read_text())
+        self.assertEqual(m["counts"]["left"], {"input": 4, "only": 0, "shared": 0, "review": 4})
+        self.assertEqual(m["counts"]["right"], {"input": 1, "only": 0, "shared": 0, "review": 1})
+        self.assertEqual(m["value_comparison"]["changed_cells"], 0)
+
+    def test_invalid_multi_key_choices_fail_without_output(self):
+        a = self.write("a.csv", [["Name", "Warehouse", "V"], ["a", "b", "1"]])
+        b = self.write("b.csv", [["Name", "Warehouse", "V"], ["a", "b", "2"]])
+        for keys, options in ((["Name", "Name"], []), (["Name", "Missing"], []),
+                              (["Name", "Warehouse"], ["--compare-columns", "Warehouse"])):
+            with self.subTest(keys=keys, options=options):
+                result, out = self.run_keys(a, b, keys, *options)
+                self.assertEqual(result.returncode, 2)
+                self.assertFalse(out.exists())
 
 
 if __name__ == "__main__":

@@ -10,7 +10,21 @@ from pathlib import Path
 import sys
 import unicodedata
 
-VERSION = "1.1.0"
+VERSION = "1.3.0"
+
+
+def key_columns(key):
+    columns = [key] if isinstance(key, str) else list(key)
+    if not columns or any(not isinstance(c, str) or not c for c in columns):
+        raise ValueError("choose at least one key column")
+    if len(set(columns)) != len(columns):
+        raise ValueError("key columns must be unique")
+    return columns
+
+
+def identity(row, columns, mode="none"):
+    parts = tuple(normalise(row[column], mode) for column in columns)
+    return parts[0] if len(parts) == 1 else parts
 
 
 def normalise(value, mode):
@@ -30,8 +44,9 @@ def read_input(path, key, delimiter, encoding):
     header = rows[0]
     if not header or any(not h.strip() for h in header) or len(set(header)) != len(header):
         raise ValueError(f"{path.name}: headers must be nonempty and unique")
-    if key not in header:
-        raise ValueError(f"{path.name}: key column {key!r} is missing")
+    for column in key_columns(key):
+        if column not in header:
+            raise ValueError(f"{path.name}: key column {column!r} is missing")
     if any("\x00" in cell for row in rows for cell in row):
         raise ValueError(f"{path.name}: NUL characters are unsupported")
     records = []
@@ -44,12 +59,14 @@ def read_input(path, key, delimiter, encoding):
 
 
 def compare(left, right, key, mode):
+    keys = key_columns(key)
     groups = {"left": defaultdict(list), "right": defaultdict(list)}
     review, only, shared = [], {"left": [], "right": []}, []
     for side, data in (("left", left), ("right", right)):
         for number, row in data["records"]:
-            value = normalise(row[key], mode)
-            if not value.strip():
+            value = identity(row, keys, mode)
+            parts = (value,) if len(keys) == 1 else value
+            if any(not part.strip() for part in parts):
                 review.append((side, number, "blank key", value, row))
             else:
                 groups[side][value].append((number, row))
@@ -61,7 +78,7 @@ def compare(left, right, key, mode):
                 review.extend((side, number, "duplicate comparison key", value, row)
                               for number, row in records)
         elif a and b:
-            shared.append((value, a[0][0], b[0][0], a[0][1][key], b[0][1][key]))
+            shared.append((value, a[0][0], b[0][0], identity(a[0][1], keys), identity(b[0][1], keys)))
         else:
             side = "left" if a else "right"
             number, row = (a or b)[0]
@@ -85,11 +102,12 @@ def compare_values(left, right, shared, columns):
 
 def export(left, right, key, mode, delimiter, encoding, output, only, review, shared,
            columns=(), changes=()):
+    keys = key_columns(key)
     escaped = 0
 
     def safe(value):
         nonlocal escaped
-        value = str(value)
+        value = json.dumps(value, ensure_ascii=False, separators=(",", ":")) if isinstance(value, tuple) else str(value)
         if value.startswith(("\t", "\r", "\n")) or value.lstrip().startswith(("=", "+", "-", "@")):
             escaped += 1
             return "'" + value
@@ -123,7 +141,7 @@ def export(left, right, key, mode, delimiter, encoding, output, only, review, sh
         make_csv("value_changes.csv", [["comparison_key", "left_source_record", "right_source_record",
                                         "column", "left_value", "right_value"]] + list(changes))
     manifest = {
-        "version": VERSION, "key": key, "normalisation": mode,
+        "version": VERSION, "key": keys[0] if len(keys) == 1 else keys, "normalisation": mode,
         "input_delimiter": delimiter, "input_encoding": encoding,
         "source_record_definition": "1-based CSV data record, excluding the header; not a physical line number",
         "sources": {side: {k: data[k] for k in ("name", "sha256", "bytes", "columns")}
@@ -140,6 +158,9 @@ def export(left, right, key, mode, delimiter, encoding, output, only, review, sh
                    "Original input files are the authoritative source of original cell values.",
                    "Reports contain your data; keep them private."]
     }
+    if len(keys) > 1:
+        manifest["key_columns"] = keys
+        manifest["comparison_key_encoding"] = "Compact JSON array of strings in key_columns order; original keys use the same encoding."
     if columns:
         changed_keys = len({row[0] for row in changes})
         manifest["value_comparison"] = {
@@ -163,7 +184,8 @@ def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("left", type=Path)
     parser.add_argument("right", type=Path)
-    parser.add_argument("--key", required=True, help="Exact column header present in both files")
+    parser.add_argument("--key", required=True, action="append", metavar="COLUMN",
+                        help="Exact header present in both files; repeat for a multi-column key")
     parser.add_argument("--out", required=True, type=Path, help="New report directory; must not exist")
     parser.add_argument("--normalise", choices=("none", "trim", "fold"), default="none")
     parser.add_argument("--compare-columns", nargs="+", default=[], metavar="COLUMN",
@@ -177,7 +199,7 @@ def main(argv=None):
         right = read_input(args.right, args.key, args.delimiter, args.encoding)
         if len(set(args.compare_columns)) != len(args.compare_columns):
             raise ValueError("comparison columns must be unique")
-        if args.key in args.compare_columns:
+        if any(column in args.compare_columns for column in args.key):
             raise ValueError("the key is already recorded in shared_keys.csv; choose non-key comparison columns")
         for data in (left, right):
             missing = [column for column in args.compare_columns if column not in data["columns"]]

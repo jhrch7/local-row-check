@@ -1,0 +1,6 @@
+﻿comparison_key,left_source_record,right_source_record,left_original_key,right_original_key
+"[""A"",""B|C""]",9,8,"[""A"",""B|C""]","[""A"",""B|C""]"
+"[""A"",""North""]",1,1,"[""A"",""North""]","[""A"",""North""]"
+"[""A"",""South""]",2,2,"[""A"",""South""]","[""A"",""South""]"
+"[""A|B"",""C""]",8,7,"[""A|B"",""C""]","[""A|B"",""C""]"
+"[""B"",""North""]",3,3,"[""B"",""North""]","[""B"",""North""]"

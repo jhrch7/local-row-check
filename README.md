@@ -1,7 +1,8 @@
 # Local Row Check
 
-Version 1.2.0 adds a single-file offline browser edition. The Python CLI remains
-the unchanged 1.1.0 engine.
+Version 1.3.0 adds multi-column keys to the Python CLI and single-file offline
+browser edition. Match on a combination such as SKU + Warehouse, while keeping
+blank components and duplicated combinations in review.
 
 [Open the free browser edition](https://jhrch7.github.io/local-row-check/) or
 download the standalone file below. GitHub serves the online page and logs page
@@ -12,19 +13,20 @@ review blank or duplicate keys separately, and optionally compare selected value
 on unique shared keys. Nothing is uploaded. No account,
 AI service or third-party Python package is needed to run it.
 
-**Without Python:** [download the offline HTML file](https://github.com/jhrch7/local-row-check/releases/download/v1.2.0/rowcheck-offline.html),
+**Without Python:** [download the offline HTML file](https://github.com/jhrch7/local-row-check/releases/download/v1.3.0/rowcheck-offline.html),
 save it, and open it locally in a current Chromium browser. Choose the two files,
-key and optional value columns, then download the report ZIP.
+key columns and optional value columns, then download the report ZIP.
 [Browser guide and verified limits](browser/README.md). This edition uses exact
 keys and UTF-8 inputs, up to 2 MiB and 50,000 data records per file.
 
-The included catalogue example holds four ambiguous rows for review and finds
-three changed cells across two unique shared keys:
+Select **Try multi-column keys** to load the synthetic warehouse example. It
+matches five unique SKU + Warehouse combinations, holds five ambiguous rows
+across the two inputs for review, and finds three changed cells:
 
-![Actual offline edition showing the synthetic catalogue comparison](media/offline-example.png)
+![Actual offline edition results for the synthetic SKU and Warehouse comparison](media/offline-example.png)
 
 The source, guide, examples and tests are free under the MIT licence.
-Download the [1.2.0 source ZIP](https://github.com/jhrch7/local-row-check/archive/refs/tags/v1.2.0.zip)
+Download the [1.3.0 source ZIP](https://github.com/jhrch7/local-row-check/archive/refs/tags/v1.3.0.zip)
 or clone this repository.
 
 For a small comparison handled for you, the optional
@@ -35,11 +37,14 @@ any order. Running the tool yourself is free.
 
 ## Start with the Python CLI
 
-Requires Python 3.9 or later and two CSV files with a common key column.
-The eleven CLI checks passed on macOS with Python 3.14 and on GitHub-hosted
-Ubuntu 24.04 and Windows Server 2025 with Python 3.14.9. See the
-[Linux/Windows verification run](https://github.com/jhrch7/local-row-check/actions/runs/41469427847).
-Other Python versions have not been exercised by these checks.
+Requires Python 3.9 or later and two CSV files with common key headers.
+The current sixteen CLI checks passed on macOS with Python 3.14.6. Nine
+single-key cases produced the same CSV bytes and manifest fields, except the
+version, as the previous 1.1.0 engine. The earlier eleven single-key checks also
+passed on GitHub-hosted Ubuntu 24.04 and Windows Server 2025 with Python 3.14.9
+([previous verification run](https://github.com/jhrch7/local-row-check/actions/runs/41469427847)).
+The new multi-column feature has not been exercised on those operating systems
+or other Python versions.
 
 1. Unzip the source download, or clone the repository.
 2. Open a terminal in the unzipped folder.
@@ -63,6 +68,39 @@ Use a unique, stable identifier when available. A shared name alone does not pro
 that two rows describe the same person. This tool compares strings and makes no
 identity judgement. The default run compares keys only; value comparison is an
 explicit option below.
+
+## Match on several columns
+
+When a SKU repeats at different warehouses, use the combination rather than
+guessing which rows belong together. Repeat `--key` for each exact header:
+
+```sh
+python3 rowcheck.py examples/warehouse/left.csv examples/warehouse/right.csv --key SKU --key Warehouse --compare-columns Price Stock --out warehouse-report
+```
+
+In the browser, choose the first key, select **Add key column**, and choose the
+next header. Each component must match. Every selected key column must be
+present in both files and can be chosen only once. A column serving as a key
+cannot also be selected for value comparison. No key is guessed for your files.
+
+The warehouse example has nine left records and eight right records. Five key
+combinations are unique and shared; one appears only on each side. Three left
+records and two right records go to review. Three selected cells differ.
+See the [inputs and generated CLI reports](examples/warehouse).
+
+Components stay separate: `A|B` + `C` differs from `A` + `B|C`. If **any**
+component is blank or whitespace-only, the row goes to review. If a complete
+combination is duplicated in either input, all its rows on **both** sides go to
+review, including a lone row in the other file. Repetition in just one component
+does not make the full combination ambiguous.
+
+Multi-column report keys use compact JSON arrays in the chosen column order,
+for example `["A","North"]`. `manifest.json` records `key_columns` and the
+encoding. `shared_keys.csv` also keeps the original components in JSON arrays.
+The CLI's explicit `trim` or `fold` rule applies separately to each component;
+the browser uses exact text only. Single-column runs keep the existing scalar
+key format. Headers containing commas or spaces are one header: quote them;
+do not join column names with commas.
 
 ## The four default reports
 

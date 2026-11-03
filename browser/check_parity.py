@@ -6,6 +6,7 @@ The explicit --work-dir must be new. Nothing is removed by this script.
 from pathlib import Path
 import argparse
 import base64
+import csv
 import importlib.util
 import io
 import json
@@ -13,6 +14,12 @@ import subprocess
 import zipfile
 
 ROOT = Path(__file__).resolve().parent.parent
+
+
+def csv_bytes(rows):
+    stream = io.StringIO(newline="")
+    csv.writer(stream, lineterminator="\n").writerows(rows)
+    return stream.getvalue().encode()
 
 
 def main():
@@ -33,6 +40,13 @@ def main():
         ("semicolon-bom", '\ufeffID;V\r\na;"x;y"\r\nb;z\r\n'.encode(), b'ID;V\na;z\nc;y\n', "ID", ["V"], ";"),
         ("tab-key-only", b'ID\tV\na\tx\nb\ty\n', b'ID\tV\na\tz\n', "ID", [], "\t"),
         ("empty-data", b'ID,V\n', b'ID,V\n', "ID", ["V"], ","),
+        ("compound-warehouse", (ROOT / "examples/warehouse/left.csv").read_bytes(), (ROOT / "examples/warehouse/right.csv").read_bytes(), ["SKU", "Warehouse"], ["Price", "Stock"], ","),
+        ("compound-escaped-component-order",
+         csv_bytes([["ID", "Region, label", "V"], ['q"', 'line\nbreak', 'old'], ['a\t', 'x', 'old'], ['a\n', 'x', 'old'], ['\ue000', 'x', 'old'], ['😀', 'x', 'old'], ['=x', '\\', '=1+1']]),
+         csv_bytes([["V", "Region, label", "ID"], ['new', '\\', '=x'], ['new', 'x', '😀'], ['new', 'x', '\ue000'], ['new', 'x', 'a\n'], ['new', 'x', 'a\t'], ['new', 'line\nbreak', 'q"']]),
+         ["ID", "Region, label"], ["V"], ","),
+        ("compound-only-blank-and-duplicate", 'ID,W,V\na,x,1\na,x,2\na,y,3\n,北,4\n\u0085,z,5\nx,,6\n'.encode(), b'ID,W,V\na,x,9\nb,z,1\n', ["ID", "W"], [], ","),
+        ("compound-header-only", b'ID,W,V\n', b'V,W,ID\n', ["ID", "W"], ["V"], ","),
     ]
     expected = []
     payload = []
@@ -70,7 +84,7 @@ const R = require(process.argv[1]);
         for filename, metadata in want["outputs"].items():
             assert got["files"][filename].encode() == (work / "python-report" / filename).read_bytes(), (name, filename)
             assert got["manifest"]["outputs"][filename] == metadata, (name, filename, "hash")
-        for field in ("sources", "counts", "formula_like_csv_cells_prefixed_with_apostrophe", "metadata_columns", "value_comparison"):
+        for field in ("key", "key_columns", "comparison_key_encoding", "sources", "counts", "formula_like_csv_cells_prefixed_with_apostrophe", "metadata_columns", "value_comparison"):
             assert got["manifest"].get(field) == want.get(field), (name, field)
         raw_zip = base64.b64decode(got["zip"])
         with zipfile.ZipFile(io.BytesIO(raw_zip)) as archive:

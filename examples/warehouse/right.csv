@@ -1,0 +1,9 @@
+SKU,Warehouse,Price,Stock
+A,North,10.00,6
+A,South,11.0,7
+B,North,20.00,2
+D,West,40.00,1
+DUP,East,8.00,1
+,North,1.00,1
+A|B,C,3.00,1
+A,B|C,4.50,1

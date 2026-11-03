@@ -12,6 +12,7 @@ h2 { font-size: 1.13rem; margin: 0 0 18px; letter-spacing: -.015em; }
 .card { border: 1px solid #d4dfdb; border-radius: 14px; padding: 26px; background: white; margin: 20px 0; box-shadow: 0 2px 5px #17362b06; }
 .section-heading { display: flex; align-items: center; gap: 16px; justify-content: space-between; margin-bottom: 20px; }
 .section-heading h2 { margin: 0; }
+.example-actions { display: flex; flex-wrap: wrap; gap: 10px; }
 .file-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
 .file-label { display: block; border: 1px solid #c8d7d1; border-radius: 9px; background: #f8fbf9; padding: 16px; font-weight: 650; }
 input[type="file"] { display: block; width: 100%; margin: 10px 0; font: inherit; font-size: .85rem; }
@@ -21,7 +22,9 @@ input[type="file"]::file-selector-button { background: white; color: #244c40; bo
 .format-row span, .hint { color: #52646d; font-size: .86rem; }
 label, legend { font-weight: 600; font-size: .92rem; }
 select { font: inherit; font-size: .93rem; background: white; color: #172b35; border: 1px solid #9eb1aa; border-radius: 6px; padding: 9px 32px 9px 10px; max-width: 100%; }
-#key { display: block; min-width: min(320px, 100%); margin-top: 8px; }
+#key-list { margin: 8px 0 10px; }
+.key-row { display: flex; align-items: center; gap: 10px; margin: 8px 0; }
+.key-row select { flex: 1; width: 0; max-width: 420px; }
 select:disabled, fieldset:disabled { color: #6c777c; }
 fieldset { border: 1px solid #d4dfdb; border-radius: 8px; margin: 22px 0 12px; padding: 14px 16px 16px; }
 legend { padding: 0 5px; }

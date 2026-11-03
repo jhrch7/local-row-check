@@ -10,13 +10,13 @@
 <body>
   <main>
     <header>
-      <p class="eyebrow">LOCAL ROW CHECK <span>1.2.0 · offline edition</span></p>
+      <p class="eyebrow">LOCAL ROW CHECK <span>1.3.0 · offline edition</span></p>
       <h1>Compare two CSV exports.<br>Keep the files on your device.</h1>
       <p class="intro">Find missing keys, review duplicates and blanks, and check the values you choose. No upload, account or Python installation.</p>
     </header>
 
     <section class="card" aria-labelledby="files-heading">
-      <div class="section-heading"><h2 id="files-heading">1. Choose your files</h2><button id="example" class="secondary" type="button">Try the included example</button></div>
+      <div class="section-heading"><h2 id="files-heading">1. Choose your files</h2><div class="example-actions"><button id="example" class="secondary" type="button">Try the catalogue example</button><button id="composite-example" class="secondary" type="button">Try multi-column keys</button></div></div>
       <div class="file-grid">
         <label class="file-label">Left CSV<input id="left-file" type="file" accept=".csv,.tsv,text/csv,text/tab-separated-values"><span id="left-name" class="file-name">No file selected</span></label>
         <label class="file-label">Right CSV<input id="right-file" type="file" accept=".csv,.tsv,text/csv,text/tab-separated-values"><span id="right-name" class="file-name">No file selected</span></label>
@@ -27,11 +27,12 @@
 
     <section class="card" aria-labelledby="rules-heading">
       <h2 id="rules-heading">2. Choose what to compare</h2>
-      <label for="key">Key column, present in both files</label>
-      <select id="key" disabled><option value="">Choose both files first</option></select>
-      <p class="hint">Use a stable identifier, such as SKU. Keys are exact, case-sensitive text; spaces are preserved. Shared keys alone do not establish identity.</p>
+      <label for="key">Key columns, present in both files</label>
+      <div id="key-list"><div class="key-row"><select id="key" disabled><option value="">Choose both files first</option></select></div></div>
+      <button id="add-key" class="secondary" type="button" disabled>Add key column</button>
+      <p class="hint">Use one stable identifier, or combine columns such as SKU + Warehouse. Keys are exact, case-sensitive text; spaces are preserved. Shared keys alone do not establish identity.</p>
       <fieldset id="columns" disabled><legend>Values to compare <span>(optional)</span></legend><div id="column-options">Choose a key to see the available columns.</div></fieldset>
-      <p class="hint">Only unique shared keys are paired. Blank or duplicate keys go to review. Values use exact text: <code>20.00</code> and <code>20.0</code> differ.</p>
+      <p class="hint">Only unique shared keys are paired. A blank component or duplicated combination goes to review. Values use exact text: <code>20.00</code> and <code>20.0</code> differ.</p>
       <div class="actions"><button id="compare" type="button" disabled>Compare files</button><button id="reset" type="button" class="secondary">Clear selections and report</button></div>
       <p id="status" role="status" aria-live="polite">Choose two CSV files, or try the example.</p>
       <p id="error" role="alert" hidden></p>
@@ -39,6 +40,7 @@
 
     <section id="results" class="card" aria-labelledby="results-heading" hidden>
       <div class="section-heading"><h2 id="results-heading">Your comparison</h2><button id="download" type="button" disabled>Download report ZIP</button></div>
+      <p id="key-summary" class="hint"></p>
       <p class="hint">For each file: input = only in this file + unique shared keys + rows for review.</p>
       <div class="table-scroll"><table class="counts"><thead><tr><th scope="col">File</th><th scope="col">Input rows</th><th scope="col">Only here</th><th scope="col">Shared</th><th scope="col">Review</th></tr></thead><tbody id="counts"></tbody></table></div>
       <p id="value-summary" class="value-summary"></p>

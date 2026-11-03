@@ -60,3 +60,32 @@ test('unsafe option choices fail; key-only report stays key-only', async () => {
   assert.equal('value_changes.csv' in r.files, false);
   assert.equal('value_comparison' in r.manifest, false);
 });
+
+test('compound identities distinguish delimiter collisions and withhold ambiguous tuples', async () => {
+  const fs = require('node:fs'), path = require('node:path');
+  const left = await R.readBytes(fs.readFileSync(path.join(__dirname, '../examples/warehouse/left.csv')), 'left.csv');
+  const right = await R.readBytes(fs.readFileSync(path.join(__dirname, '../examples/warehouse/right.csv')), 'right.csv');
+  const r = await R.makeReport(left, right, ['SKU', 'Warehouse'], ['Price', 'Stock']);
+  assert.deepEqual(r.manifest.counts, {left: {input: 9, only: 1, shared: 5, review: 3}, right: {input: 8, only: 1, shared: 5, review: 2}});
+  assert.deepEqual(r.manifest.key_columns, ['SKU', 'Warehouse']);
+  assert.deepEqual(r.tables['value_changes.csv'].slice(1).map(row => [JSON.parse(row[0]), row[3]]), [[['A', 'B|C'], 'Price'], [['A', 'North'], 'Stock'], [['A', 'South'], 'Price']]);
+  assert.equal(r.tables['review.csv'].slice(1).filter(row => row[2] === 'blank key').length, 2);
+  assert.equal(r.tables['review.csv'].slice(1).filter(row => row[2] === 'duplicate comparison key').length, 3);
+});
+
+test('compound ordering uses decoded components and Unicode code points', async () => {
+  const text = 'Name,"Region, label",V\n"q""","line\nbreak",x\n"a\t",z,x\n"a\n",z,x\n😀,z,x\n\ue000,z,x\n';
+  const data = await R.readBytes(bytes(text), 'input.csv');
+  const r = await R.makeReport(data, data, ['Name', 'Region, label']);
+  assert.deepEqual(r.tables['shared_keys.csv'].slice(1).map(row => JSON.parse(row[0])), [['a\t', 'z'], ['a\n', 'z'], ['q"', 'line\nbreak'], ['\ue000', 'z'], ['😀', 'z']]);
+  assert.equal('value_changes.csv' in r.files, false);
+});
+
+test('key arrays validate all components, and a one-element array preserves scalar reports', async () => {
+  const data = await R.readBytes(bytes('ID,V\na,1\n'), 'input.csv');
+  for (const keys of [[], ['ID', 'ID'], ['ID', 'Missing'], ['ID', '']]) assert.throws(() => R.compare(data, data, keys));
+  assert.throws(() => R.compare(data, data, ['ID', 'V'], ['V']));
+  const scalar = await R.makeReport(data, data, 'ID');
+  const array = await R.makeReport(data, data, ['ID']);
+  assert.deepEqual(array, scalar);
+});
