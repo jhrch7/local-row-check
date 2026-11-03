@@ -1,0 +1,439 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; connect-src 'none'; img-src data:; object-src 'none'; base-uri 'none'; form-action 'none'">
+  <title>Local Row Check — offline CSV comparison</title>
+  <style>:root { color-scheme: light; font: 16px/1.55 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; color: #172b35; background: #f3f6f5; }
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+body { margin: 0; }
+main { width: min(1060px, 100% - 48px); margin: 0 auto; padding: 44px 0 28px; }
+header { padding: 0 4px 18px; }
+.eyebrow { font-size: .78rem; font-weight: 750; letter-spacing: .1em; color: #256052; }
+.eyebrow span { color: #566b73; font-weight: 500; letter-spacing: 0; margin-left: 12px; }
+h1 { font-size: clamp(1.9rem, 4vw, 2.75rem); line-height: 1.16; letter-spacing: -.035em; margin: 22px 0 18px; }
+.intro { max-width: 690px; font-size: 1.08rem; color: #425861; }
+h2 { font-size: 1.13rem; margin: 0 0 18px; letter-spacing: -.015em; }
+.card { border: 1px solid #d4dfdb; border-radius: 14px; padding: 26px; background: white; margin: 20px 0; box-shadow: 0 2px 5px #17362b06; }
+.section-heading { display: flex; align-items: center; gap: 16px; justify-content: space-between; margin-bottom: 20px; }
+.section-heading h2 { margin: 0; }
+.file-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+.file-label { display: block; border: 1px solid #c8d7d1; border-radius: 9px; background: #f8fbf9; padding: 16px; font-weight: 650; }
+input[type="file"] { display: block; width: 100%; margin: 10px 0; font: inherit; font-size: .85rem; }
+input[type="file"]::file-selector-button { background: white; color: #244c40; border: 1px solid #9cb5a9; border-radius: 5px; padding: 7px 10px; font: inherit; margin-right: 10px; }
+.file-name { display: block; color: #566b73; font-size: .83rem; font-weight: 400; overflow-wrap: anywhere; }
+.format-row { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin: 20px 0 8px; }
+.format-row span, .hint { color: #52646d; font-size: .86rem; }
+label, legend { font-weight: 600; font-size: .92rem; }
+select { font: inherit; font-size: .93rem; background: white; color: #172b35; border: 1px solid #9eb1aa; border-radius: 6px; padding: 9px 32px 9px 10px; max-width: 100%; }
+#key { display: block; min-width: min(320px, 100%); margin-top: 8px; }
+select:disabled, fieldset:disabled { color: #6c777c; }
+fieldset { border: 1px solid #d4dfdb; border-radius: 8px; margin: 22px 0 12px; padding: 14px 16px 16px; }
+legend { padding: 0 5px; }
+legend span { font-weight: 400; color: #52646d; }
+#column-options { display: flex; flex-wrap: wrap; gap: 12px 22px; color: #52646d; font-size: .88rem; }
+#column-options label { display: flex; align-items: center; gap: 7px; font-size: .9rem; font-weight: 500; }
+input[type="checkbox"] { width: 17px; height: 17px; accent-color: #196046; }
+.actions { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin-top: 22px; }
+button { font: inherit; font-size: .9rem; font-weight: 650; border-radius: 7px; border: 1px solid #17583f; color: white; background: #196046; padding: 10px 15px; cursor: pointer; }
+button:hover:enabled { background: #104931; }
+button.secondary { background: white; color: #2b5144; border-color: #b4c6bd; }
+button.secondary:hover:enabled { background: #edf4f0; }
+button:disabled { opacity: .45; cursor: default; }
+:focus-visible { outline: 3px solid #2b7da6; outline-offset: 3px; }
+#status { font-size: .88rem; min-height: 1.5em; margin: 16px 0 0; }
+#error { color: #8d2d1f; background: #fff1ed; border: 1px solid #edc7bc; padding: 12px; border-radius: 7px; overflow-wrap: anywhere; margin-bottom: 0; }
+.table-scroll { max-width: 100%; overflow: auto; border: 1px solid #dce4df; border-radius: 7px; }
+table { width: 100%; border-collapse: collapse; text-align: left; font-size: .84rem; }
+th, td { padding: 11px 12px; border-bottom: 1px solid #e3eae6; vertical-align: top; }
+th { background: #f0f5f2; font-weight: 650; white-space: nowrap; }
+tr:last-child td { border-bottom: 0; }
+td { max-width: 340px; min-width: 80px; white-space: pre-wrap; overflow-wrap: anywhere; }
+.counts th:not(:first-child), .counts td:not(:first-child) { text-align: right; }
+.counts td { white-space: normal; }
+.value-summary { padding: 13px 0; font-weight: 600; font-size: .94rem; }
+.preview-heading { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; margin: 12px 0; }
+details { margin-top: 20px; }
+summary { cursor: pointer; font-size: .9rem; font-weight: 600; }
+pre { font-size: .76rem; white-space: pre-wrap; overflow-wrap: anywhere; background: #f6f8f7; padding: 12px; border-radius: 6px; }
+code { background: #f0f4f2; border-radius: 3px; padding: 1px 3px; }
+footer { padding: 4px; max-width: 960px; color: #52646d; font-size: .79rem; }
+a { color: #185a83; text-underline-offset: 3px; }
+@media (max-width: 650px) {
+  main { width: calc(100% - 24px); padding-top: 24px; }
+  header { padding-left: 6px; }
+  .card { padding: 19px 16px; }
+  .file-grid { grid-template-columns: 1fr; gap: 12px; }
+  .section-heading { align-items: flex-start; flex-direction: column; gap: 12px; }
+  .eyebrow span { display: block; margin: 5px 0 0; }
+  .counts th, .counts td { padding: 9px; min-width: 55px; }
+}
+</style>
+</head>
+<body>
+  <main>
+    <header>
+      <p class="eyebrow">LOCAL ROW CHECK <span>1.2.0 · offline edition</span></p>
+      <h1>Compare two CSV exports.<br>Keep the files on your device.</h1>
+      <p class="intro">Find missing keys, review duplicates and blanks, and check the values you choose. No upload, account or Python installation.</p>
+    </header>
+
+    <section class="card" aria-labelledby="files-heading">
+      <div class="section-heading"><h2 id="files-heading">1. Choose your files</h2><button id="example" class="secondary" type="button">Try the included example</button></div>
+      <div class="file-grid">
+        <label class="file-label">Left CSV<input id="left-file" type="file" accept=".csv,.tsv,text/csv,text/tab-separated-values"><span id="left-name" class="file-name">No file selected</span></label>
+        <label class="file-label">Right CSV<input id="right-file" type="file" accept=".csv,.tsv,text/csv,text/tab-separated-values"><span id="right-name" class="file-name">No file selected</span></label>
+      </div>
+      <div class="format-row"><label for="delimiter">Both files use</label><select id="delimiter"><option value=",">Commas</option><option value=";">Semicolons</option><option value="tab">Tabs</option></select><span>UTF-8 CSV · up to 2 MiB and 50,000 data records per file</span></div>
+      <p class="hint">Export Excel or Google Sheets workbooks as UTF-8 CSV first. Headers must be unique and nonempty.</p>
+    </section>
+
+    <section class="card" aria-labelledby="rules-heading">
+      <h2 id="rules-heading">2. Choose what to compare</h2>
+      <label for="key">Key column, present in both files</label>
+      <select id="key" disabled><option value="">Choose both files first</option></select>
+      <p class="hint">Use a stable identifier, such as SKU. Keys are exact, case-sensitive text; spaces are preserved. Shared keys alone do not establish identity.</p>
+      <fieldset id="columns" disabled><legend>Values to compare <span>(optional)</span></legend><div id="column-options">Choose a key to see the available columns.</div></fieldset>
+      <p class="hint">Only unique shared keys are paired. Blank or duplicate keys go to review. Values use exact text: <code>20.00</code> and <code>20.0</code> differ.</p>
+      <div class="actions"><button id="compare" type="button" disabled>Compare files</button><button id="reset" type="button" class="secondary">Clear selections and report</button></div>
+      <p id="status" role="status" aria-live="polite">Choose two CSV files, or try the example.</p>
+      <p id="error" role="alert" hidden></p>
+    </section>
+
+    <section id="results" class="card" aria-labelledby="results-heading" hidden>
+      <div class="section-heading"><h2 id="results-heading">Your comparison</h2><button id="download" type="button" disabled>Download report ZIP</button></div>
+      <p class="hint">For each file: input = only in this file + unique shared keys + rows for review.</p>
+      <div class="table-scroll"><table class="counts"><thead><tr><th scope="col">File</th><th scope="col">Input rows</th><th scope="col">Only here</th><th scope="col">Shared</th><th scope="col">Review</th></tr></thead><tbody id="counts"></tbody></table></div>
+      <p id="value-summary" class="value-summary"></p>
+      <div class="preview-heading"><label for="preview-file">Preview</label><select id="preview-file"></select><span id="preview-count" class="hint"></span></div>
+      <div class="table-scroll" tabindex="0" aria-label="Report preview, scroll for more columns"><table id="preview"><thead></thead><tbody></tbody></table></div>
+      <p class="hint">Preview shows up to 20 data rows. The ZIP contains every report row and a manifest with input/output hashes. Reports contain your data; keep them private.</p>
+      <details><summary>Input hashes and CSV output notes</summary><pre id="hashes"></pre><p class="hint">Output CSVs are UTF-8 with BOM. Formula-like cells receive an apostrophe prefix to reduce spreadsheet execution risk. This changes their CSV text; your original files remain authoritative.</p></details>
+    </section>
+
+    <footer>
+      <p>This file has no network requests, telemetry or persistent data storage. Selected data stays in page memory; downloaded reports remain on your device. Keep originals and review ambiguous keys before making changes.</p>
+      <p>Free under the MIT licence · <a href="https://github.com/jhrch7/local-row-check" target="_blank" rel="noopener noreferrer">Source, Python CLI and limitations</a> · <a href="https://github.com/jhrch7/csv-comparison-pilot" target="_blank" rel="noopener noreferrer">Optional comparison help</a></p>
+      <p>Produced with AI coding assistance. Automated checks do not establish customer adoption or independently audited security.</p>
+    </footer>
+  </main>
+  <script>/* Local Row Check browser core. MIT licence; no network or dependencies. */
+(function (root) {
+  'use strict';
+  const VERSION = '1.2.0';
+  const MAX_BYTES = 2 * 1024 * 1024;
+  const MAX_RECORDS = 50000;
+  // Python str.isspace(), used by the existing CLI for blank keys and safety prefixes.
+  const SPACE = '[\\u0009-\\u000d\\u001c-\\u0020\\u0085\\u00a0\\u1680\\u2000-\\u200a\\u2028\\u2029\\u202f\\u205f\\u3000]';
+  const blank = new RegExp('^' + SPACE + '*$');
+  const leadingSpace = new RegExp('^' + SPACE + '*');
+  const encode = value => new TextEncoder().encode(value);
+
+  function parseCsv(text, delimiter = ',', name = 'CSV') {
+    if (![',', ';', '\t'].includes(delimiter)) throw new Error('Choose comma, semicolon or tab.');
+    const rows = [];
+    let row = [], field = '', state = 'start', active = false;
+    const endField = () => { row.push(field); field = ''; state = 'start'; };
+    const endRow = () => {
+      if (active) endField();
+      rows.push(row); row = []; active = false; state = 'start';
+      if (rows.length > MAX_RECORDS + 1) throw new Error(name + ': more than 50,000 data records.');
+    };
+    for (let i = 0; i < text.length; i++) {
+      const ch = text[i];
+      if (ch === '\0') throw new Error(name + ': NUL characters are unsupported.');
+      if (state === 'quoted') {
+        if (ch === '"') state = 'closed'; else field += ch;
+      } else if (state === 'closed' && ch === '"') {
+        field += '"'; state = 'quoted';
+      } else if (ch === delimiter) {
+        endField(); active = true;
+      } else if (ch === '\r' || ch === '\n') {
+        endRow();
+        if (ch === '\r' && text[i + 1] === '\n') i++;
+      } else if (state === 'closed') {
+        throw new Error(name + ': unexpected text after a closing quote.');
+      } else if (state === 'start' && ch === '"') {
+        state = 'quoted'; active = true;
+      } else {
+        field += ch; state = 'plain'; active = true;
+      }
+    }
+    if (state === 'quoted') throw new Error(name + ': quoted field is not closed.');
+    if (active) endRow();
+    if (!rows.length) throw new Error(name + ': empty file.');
+    const columns = rows[0];
+    if (!columns.length || columns.some(h => blank.test(h)) || new Set(columns).size !== columns.length) {
+      throw new Error(name + ': headers must be nonempty and unique.');
+    }
+    const records = rows.slice(1).map((cells, index) => {
+      if (cells.length !== columns.length) {
+        throw new Error(name + ': data record ' + (index + 1) + ' has ' + cells.length + ' fields; expected ' + columns.length + '.');
+      }
+      return {number: index + 1, cells, row: Object.fromEntries(columns.map((column, i) => [column, cells[i]]))};
+    });
+    return {name, columns, records};
+  }
+
+  async function sha256(bytes) {
+    if (!globalThis.crypto?.subtle) throw new Error('Local hashing is unavailable in this browser. Use a current Chromium browser or the Python CLI.');
+    const hash = await globalThis.crypto.subtle.digest('SHA-256', bytes);
+    return Array.from(new Uint8Array(hash), b => b.toString(16).padStart(2, '0')).join('');
+  }
+
+  async function readBytes(raw, name, delimiter = ',') {
+    const bytes = raw instanceof Uint8Array ? raw : new Uint8Array(raw);
+    if (bytes.length > MAX_BYTES) throw new Error(name + ': the browser edition accepts up to 2 MiB per file.');
+    let text;
+    try { text = new TextDecoder('utf-8', {fatal: true}).decode(bytes); }
+    catch { throw new Error(name + ': not valid UTF-8. Export as UTF-8 CSV or use the CLI with its actual encoding.'); }
+    const data = parseCsv(text, delimiter, name);
+    return {...data, bytes: bytes.length, sha256: await sha256(bytes)};
+  }
+
+  function codePointOrder(a, b) {
+    const left = Array.from(a), right = Array.from(b);
+    for (let i = 0; i < Math.min(left.length, right.length); i++) {
+      const diff = left[i].codePointAt(0) - right[i].codePointAt(0);
+      if (diff) return diff;
+    }
+    return left.length - right.length;
+  }
+
+  function compare(left, right, key, columns = []) {
+    for (const data of [left, right]) {
+      if (!data.columns.includes(key)) throw new Error(data.name + ': choose a key column present in both files.');
+      if (columns.some(c => !data.columns.includes(c))) throw new Error(data.name + ': a selected value column is missing.');
+    }
+    if (new Set(columns).size !== columns.length || columns.includes(key)) throw new Error('Choose unique non-key value columns.');
+    const groups = {left: new Map(), right: new Map()};
+    const only = {left: [], right: []}, review = [], shared = [], changes = [];
+    for (const [side, data] of [['left', left], ['right', right]]) {
+      for (const record of data.records) {
+        const value = record.row[key];
+        if (blank.test(value)) review.push({side, record, reason: 'blank key', value});
+        else {
+          if (!groups[side].has(value)) groups[side].set(value, []);
+          groups[side].get(value).push(record);
+        }
+      }
+    }
+    const keys = [...new Set([...groups.left.keys(), ...groups.right.keys()])].sort(codePointOrder);
+    for (const value of keys) {
+      const a = groups.left.get(value) || [], b = groups.right.get(value) || [];
+      if (a.length > 1 || b.length > 1) {
+        for (const [side, records] of [['left', a], ['right', b]]) {
+          for (const record of records) review.push({side, record, reason: 'duplicate comparison key', value});
+        }
+      } else if (a.length && b.length) {
+        shared.push([value, a[0].number, b[0].number, a[0].row[key], b[0].row[key]]);
+        for (const column of columns) {
+          if (a[0].row[column] !== b[0].row[column]) changes.push([value, a[0].number, b[0].number, column, a[0].row[column], b[0].row[column]]);
+        }
+      } else {
+        const side = a.length ? 'left' : 'right';
+        only[side].push({value, record: (a.length ? a : b)[0]});
+      }
+    }
+    const counts = {};
+    for (const [side, data] of [['left', left], ['right', right]]) {
+      counts[side] = {input: data.records.length, only: only[side].length, shared: shared.length, review: review.filter(r => r.side === side).length};
+      const c = counts[side];
+      if (c.input !== c.only + c.shared + c.review) throw new Error('Row-accounting check failed. No report was created.');
+    }
+    return {only, review, shared, changes, counts};
+  }
+
+  async function makeReport(left, right, key, columns = [], delimiter = ',') {
+    const result = compare(left, right, key, columns);
+    const files = {}, tables = {}, metadata = {};
+    let escaped = 0;
+    const safe = value => {
+      const text = String(value), lead = text.replace(leadingSpace, '');
+      if (/^[\t\r\n]/.test(text) || /^[=+\-@]/.test(lead)) { escaped++; return "'" + text; }
+      return text;
+    };
+    const csvCell = value => /[",\r\n]/.test(value) ? '"' + value.replaceAll('"', '""') + '"' : value;
+    const csv = (name, rows) => {
+      tables[name] = rows;
+      const lines = rows.map(row => row.map(v => csvCell(safe(v))).join(','));
+      files[name] = '\ufeff' + lines.join('\n') + '\n';
+    };
+    for (const [side, data] of [['left', left], ['right', right]]) {
+      let recordCol = '__source_record__', keyCol = '__comparison_key__';
+      while (data.columns.includes(recordCol)) recordCol += '_';
+      while (data.columns.includes(keyCol) || keyCol === recordCol) keyCol += '_';
+      metadata[side] = [recordCol, keyCol];
+      csv('only_' + side + '.csv', [[recordCol, keyCol, ...data.columns], ...result.only[side].map(r => [r.record.number, r.value, ...r.record.cells])]);
+    }
+    const originalJson = (data, record) => '{' + data.columns.map((column, i) => JSON.stringify(column) + ': ' + JSON.stringify(record.cells[i])).join(', ') + '}';
+    csv('review.csv', [['source', 'source_record', 'reason', 'comparison_key', 'original_row_json'], ...result.review.map(r => [r.side, r.record.number, r.reason, r.value, originalJson(r.side === 'left' ? left : right, r.record)])]);
+    csv('shared_keys.csv', [['comparison_key', 'left_source_record', 'right_source_record', 'left_original_key', 'right_original_key'], ...result.shared]);
+    if (columns.length) csv('value_changes.csv', [['comparison_key', 'left_source_record', 'right_source_record', 'column', 'left_value', 'right_value'], ...result.changes]);
+    const outputs = {};
+    for (const [name, text] of Object.entries(files)) {
+      const bytes = encode(text); outputs[name] = {sha256: await sha256(bytes), bytes: bytes.length};
+    }
+    const manifest = {
+      version: VERSION, edition: 'offline-browser', key, normalisation: 'none', input_delimiter: delimiter, input_encoding: 'utf-8-sig',
+      source_record_definition: '1-based CSV data record, excluding the header; not a physical line number',
+      sources: Object.fromEntries([['left', left], ['right', right]].map(([side, data]) => [side, {name: data.name, sha256: data.sha256, bytes: data.bytes, columns: data.columns}])),
+      counts: result.counts, formula_like_csv_cells_prefixed_with_apostrophe: escaped, metadata_columns: metadata, outputs,
+      limits: ['Shared keys do not prove two rows refer to the same person.', 'No fuzzy matching, enrichment or correction is performed.', 'Original input files are the authoritative source of original cell values.', 'Reports contain your data; keep them private.', 'Browser edition: exact keys only, UTF-8, up to 2 MiB and 50,000 data records per input.']
+    };
+    if (columns.length) {
+      const changedKeys = new Set(result.changes.map(row => row[0])).size;
+      manifest.value_comparison = {columns, method: 'Exact decoded strings; key normalisation is not applied to these values.', shared_keys_compared: result.shared.length, keys_with_changes: changedKeys, keys_without_selected_changes: result.shared.length - changedKeys, changed_cells: result.changes.length};
+    }
+    files['manifest.json'] = JSON.stringify(manifest, null, 2) + '\n';
+    return {files, tables, manifest};
+  }
+
+  const crcTable = Array.from({length: 256}, (_, i) => {
+    let c = i; for (let j = 0; j < 8; j++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1; return c >>> 0;
+  });
+  function zip(files) {
+    const local = [], central = []; let offset = 0;
+    for (const [name, text] of Object.entries(files)) {
+      if (!/^[a-z_]+\.(csv|json)$/.test(name)) throw new Error('Unexpected report filename.');
+      const filename = encode(name), bytes = encode(text);
+      let crc = 0xffffffff; for (const b of bytes) crc = crcTable[(crc ^ b) & 255] ^ (crc >>> 8); crc = (crc ^ 0xffffffff) >>> 0;
+      const header = new Uint8Array(30 + filename.length), h = new DataView(header.buffer);
+      h.setUint32(0, 0x04034b50, true); h.setUint16(4, 20, true); h.setUint16(6, 0x800, true);
+      h.setUint16(12, 33, true); h.setUint32(14, crc, true); h.setUint32(18, bytes.length, true); h.setUint32(22, bytes.length, true); h.setUint16(26, filename.length, true); header.set(filename, 30);
+      const entry = new Uint8Array(46 + filename.length), e = new DataView(entry.buffer);
+      e.setUint32(0, 0x02014b50, true); e.setUint16(4, 20, true); e.setUint16(6, 20, true); e.setUint16(8, 0x800, true); e.setUint16(14, 33, true);
+      e.setUint32(16, crc, true); e.setUint32(20, bytes.length, true); e.setUint32(24, bytes.length, true); e.setUint16(28, filename.length, true); e.setUint32(42, offset, true); entry.set(filename, 46);
+      local.push(header, bytes); central.push(entry); offset += header.length + bytes.length;
+    }
+    const centralSize = central.reduce((n, b) => n + b.length, 0), end = new Uint8Array(22), e = new DataView(end.buffer);
+    e.setUint32(0, 0x06054b50, true); e.setUint16(8, central.length, true); e.setUint16(10, central.length, true); e.setUint32(12, centralSize, true); e.setUint32(16, offset, true);
+    const out = new Uint8Array(offset + centralSize + end.length); let cursor = 0;
+    for (const part of [...local, ...central, end]) { out.set(part, cursor); cursor += part.length; }
+    return out;
+  }
+  const api = {VERSION, MAX_BYTES, MAX_RECORDS, parseCsv, readBytes, compare, makeReport, zip};
+  if (typeof module === 'object' && module.exports) module.exports = api;
+  else root.RowCheck = api;
+})(globalThis);
+</script>
+  <script>(function () {
+  'use strict';
+  const $ = id => document.getElementById(id);
+  let generation = 0, left = null, right = null, report = null, downloadUrl = null, exampleBytes = null;
+  const delimiter = () => $('delimiter').value === 'tab' ? '\t' : $('delimiter').value;
+  const chosenColumns = () => [...$('column-options').querySelectorAll('input:checked')].map(input => input.value);
+  function status(text) { $('status').textContent = text; }
+  function invalidate() {
+    generation++; report = null; $('results').hidden = true; $('download').disabled = true;
+    $('error').hidden = true; $('error').textContent = '';
+    $('counts').replaceChildren(); $('preview').querySelector('thead').replaceChildren(); $('preview').querySelector('tbody').replaceChildren();
+    $('value-summary').textContent = ''; $('hashes').textContent = '';
+    if (downloadUrl) { URL.revokeObjectURL(downloadUrl); downloadUrl = null; }
+    $('compare').disabled = !(left && right && $('key').value);
+  }
+  function showError(error) {
+    $('error').textContent = error.message || String(error); $('error').hidden = false; status('No report created. Check the files and try again.');
+  }
+  function resetRules() {
+    $('key').replaceChildren(new Option('Choose both files first', '')); $('key').disabled = true;
+    $('columns').disabled = true; $('column-options').textContent = 'Choose a key to see the available columns.';
+  }
+  function makeColumns(selected = []) {
+    $('column-options').replaceChildren(); $('columns').disabled = !$('key').value;
+    if (!$('key').value) { $('column-options').textContent = 'Choose a key to see the available columns.'; return; }
+    const available = left.columns.filter(c => right.columns.includes(c) && c !== $('key').value);
+    if (!available.length) $('column-options').textContent = 'No other shared columns. This will compare keys only.';
+    for (const column of available) {
+      const label = document.createElement('label'), input = document.createElement('input');
+      input.type = 'checkbox'; input.value = column; input.checked = selected.includes(column);
+      input.addEventListener('change', () => { invalidate(); status('Options changed. Compare files to create a new report.'); });
+      label.append(input, document.createTextNode(column)); $('column-options').append(label);
+    }
+  }
+  async function loadFiles(fromExample = false) {
+    left = right = null; invalidate(); resetRules(); const token = generation;
+    const files = fromExample ? exampleBytes : [$('left-file').files[0], $('right-file').files[0]];
+    $('left-name').textContent = files?.[0]?.name ? (fromExample ? 'Included example: ' : '') + files[0].name : 'No file selected';
+    $('right-name').textContent = files?.[1]?.name ? (fromExample ? 'Included example: ' : '') + files[1].name : 'No file selected';
+    if (!files?.[0] || !files?.[1]) { status('Choose both files to continue.'); return; }
+    status('Reading files on this device…');
+    try {
+      const loaded = await Promise.all(files.map(async f => {
+        if (f.size > RowCheck.MAX_BYTES) throw new Error(f.name + ': the browser edition accepts up to 2 MiB per file.');
+        return RowCheck.readBytes(await f.arrayBuffer(), f.name, delimiter());
+      }));
+      if (token !== generation) return;
+      const common = loaded[0].columns.filter(c => loaded[1].columns.includes(c));
+      if (!common.length) throw new Error('No shared column header. Choose files with a common key column, using exactly the same header text.');
+      [left, right] = loaded;
+      $('key').replaceChildren(new Option('Choose a key column', ''), ...common.map(c => new Option(c, c))); $('key').disabled = false;
+      if (fromExample && common.includes('SKU')) {
+        $('key').value = 'SKU'; makeColumns(['Price', 'Stock']); $('compare').disabled = false;
+        status('Example loaded. Compare files to inspect its three changed cells and review rows.');
+      } else status('Files read locally. Choose the key column and optional value columns.');
+    } catch (error) {
+      if (token !== generation) return;
+      left = right = null; resetRules(); $('compare').disabled = true; showError(error);
+    }
+  }
+  function cell(tag, value) { const el = document.createElement(tag); el.textContent = String(value); return el; }
+  function preview() {
+    const name = $('preview-file').value, rows = report.tables[name], table = $('preview');
+    table.querySelector('thead').replaceChildren(); table.querySelector('tbody').replaceChildren();
+    const heading = document.createElement('tr'); for (const value of rows[0]) { const th = cell('th', value); th.scope = 'col'; heading.append(th); }
+    table.querySelector('thead').append(heading);
+    for (const row of rows.slice(1, 21)) { const tr = document.createElement('tr'); for (const value of row) tr.append(cell('td', value)); table.querySelector('tbody').append(tr); }
+    $('preview-count').textContent = (rows.length - 1) + ' data rows in this report';
+  }
+  function showReport() {
+    const manifest = report.manifest;
+    for (const side of ['left', 'right']) {
+      const count = manifest.counts[side], tr = document.createElement('tr');
+      for (const value of [side === 'left' ? 'Left' : 'Right', count.input, count.only, count.shared, count.review]) tr.append(cell('td', value));
+      $('counts').append(tr);
+    }
+    const values = manifest.value_comparison;
+    const plural = (count, noun) => count + ' ' + noun + (count === 1 ? '' : 's');
+    $('value-summary').textContent = values ? plural(values.shared_keys_compared, 'unique shared key') + ' compared · ' + plural(values.keys_with_changes, 'key') + ' with changes · ' + plural(values.changed_cells, 'changed cell') : 'Keys compared only. No value columns were selected.';
+    const labels = {'only_left.csv': 'Only in left', 'only_right.csv': 'Only in right', 'review.csv': 'Rows for review', 'shared_keys.csv': 'Unique shared keys', 'value_changes.csv': 'Changed values'};
+    $('preview-file').replaceChildren(...Object.keys(report.tables).map(name => new Option(labels[name], name)));
+    $('preview-file').value = values ? 'value_changes.csv' : 'review.csv'; preview();
+    $('hashes').textContent = ['left', 'right'].map(side => side.toUpperCase() + ': ' + manifest.sources[side].name + '\nSHA-256: ' + manifest.sources[side].sha256).join('\n\n');
+    downloadUrl = URL.createObjectURL(new Blob([RowCheck.zip(report.files)], {type: 'application/zip'}));
+    $('download').disabled = false; $('results').hidden = false;
+  }
+  $('compare').addEventListener('click', async () => {
+    if (!(left && right && $('key').value)) return;
+    invalidate(); const token = generation; $('compare').disabled = true; status('Comparing and hashing the report on this device…');
+    try {
+      const result = await RowCheck.makeReport(left, right, $('key').value, chosenColumns(), delimiter());
+      if (token !== generation) return;
+      report = result; showReport(); status('Comparison complete. Review the results or download the report.');
+    } catch (error) { if (token === generation) showError(error); }
+    finally { if (token === generation) $('compare').disabled = false; }
+  });
+  $('key').addEventListener('change', () => { invalidate(); makeColumns(); status('Choose value columns if needed, then compare files.'); });
+  $('left-file').addEventListener('change', () => { exampleBytes = null; loadFiles(); });
+  $('right-file').addEventListener('change', () => { exampleBytes = null; loadFiles(); });
+  $('delimiter').addEventListener('change', () => loadFiles(Boolean(exampleBytes)));
+  $('preview-file').addEventListener('change', preview);
+  $('download').addEventListener('click', () => {
+    if (!downloadUrl) return;
+    const link = document.createElement('a'); link.href = downloadUrl; link.download = 'rowcheck-report.zip'; link.click();
+  });
+  $('reset').addEventListener('click', () => {
+    left = right = null; exampleBytes = null; $('left-file').value = ''; $('right-file').value = ''; invalidate(); resetRules();
+    $('left-name').textContent = $('right-name').textContent = 'No file selected'; status('Selections and report cleared. Choose two CSV files, or try the example.');
+  });
+  $('example').addEventListener('click', () => {
+    $('left-file').value = ''; $('right-file').value = ''; $('delimiter').value = ',';
+    exampleBytes = [new File(["SKU,Price,Stock,Title\nA-001,10.00,4,Widget\nA-002,20.00,3,Cable\nA-003,5.00,7,Battery\nA-003,6.00,8,Battery duplicate\n,9.00,2,Missing SKU\nA-004,2.00,1,Only left\nA-006,1.00,9,Tape\n"], 'catalog-left.csv', {type: 'text/csv'}), new File(["SKU,Price,Stock,Title\nA-001,12.00,4,Widget\nA-002,20.0,5,Cable\nA-003,5.00,7,Battery\nA-005,3.00,2,Only right\nA-006,1.00,9,Renamed tape\n"], 'catalog-right.csv', {type: 'text/csv'})];
+    loadFiles(true);
+  });
+})();
+</script>
+</body>
+</html>

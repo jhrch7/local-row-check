@@ -1,14 +1,26 @@
 # Local Row Check
 
-Version 1.1.0.
+Version 1.2.0 adds a single-file offline browser edition. The Python CLI remains
+the unchanged 1.1.0 engine.
 
 Compare two CSV exports on your computer. Find keys that appear in only one file,
 review blank or duplicate keys separately, and optionally compare selected values
 on unique shared keys. Nothing is uploaded. No account,
 AI service or third-party Python package is needed to run it.
 
+**Without Python:** [download the offline HTML file](https://github.com/jhrch7/local-row-check/releases/download/v1.2.0/rowcheck-offline.html),
+save it, and open it locally in a current Chromium browser. Choose the two files,
+key and optional value columns, then download the report ZIP.
+[Browser guide and verified limits](browser/README.md). This edition uses exact
+keys and UTF-8 inputs, up to 2 MiB and 50,000 data records per file.
+
+The included catalogue example holds four ambiguous rows for review and finds
+three changed cells across two unique shared keys:
+
+![Actual offline edition showing the synthetic catalogue comparison](media/offline-example.png)
+
 The source, guide, examples and tests are free under the MIT licence.
-Download the [1.1.0 source ZIP](https://github.com/jhrch7/local-row-check/archive/refs/tags/v1.1.0.zip)
+Download the [1.2.0 source ZIP](https://github.com/jhrch7/local-row-check/archive/refs/tags/v1.2.0.zip)
 or clone this repository.
 
 For a small comparison handled for you, the optional
@@ -17,7 +29,7 @@ indicative A$40 total price. It covers two non-sensitive CSVs within its stated
 limits. Scope, availability, delivery, turnaround and payment are agreed before
 any order. Running the tool yourself is free.
 
-## Start here
+## Start with the Python CLI
 
 Requires Python 3.9 or later and two CSV files with a common key column.
 The eleven CLI checks passed on macOS with Python 3.14 and on GitHub-hosted
