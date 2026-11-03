@@ -1,7 +1,9 @@
 #!/usr/bin/env node
-/* Actual local-file UI verification in a NEW headless Chrome profile only.
- * No existing browser/profile, Safari surface, account or external page is used.
+/* Actual local-file/project-site UI verification in a NEW headless profile.
+ * No existing browser/profile, Safari surface or account is used.
  * Usage: node browser/check_ui.cjs --chrome PATH --work-dir NEW_DIRECTORY
+ * Optional: --site-url https://jhrch7.github.io/local-row-check/
+ * Local landing review: --site-url local --visual-only
  */
 'use strict';
 const fs = require('node:fs/promises');
@@ -14,6 +16,10 @@ const args = process.argv.slice(2);
 const option = name => args[args.indexOf(name) + 1];
 if (!args.includes('--chrome') || !args.includes('--work-dir')) throw new Error('Provide --chrome and a NEW --work-dir.');
 const work = path.resolve(option('--work-dir')), root = path.resolve(__dirname, '..');
+const site = args.includes('--site-url') ? option('--site-url') : null;
+const visualOnly = args.includes('--visual-only');
+assert.ok(!visualOnly || site, '--visual-only needs a project landing page');
+assert.ok(!site || site === 'local' || site === 'https://jhrch7.github.io/local-row-check/', 'Use this project site or its local landing file only');
 const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
 
 (async () => {
@@ -22,7 +28,7 @@ const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
   await fs.mkdir(profile); await fs.mkdir(downloads);
   const child = spawn(option('--chrome'), ['--headless=new', '--no-first-run', '--no-default-browser-check', '--disable-background-networking', '--disable-component-update', '--disable-sync', '--disable-extensions', '--remote-debugging-address=127.0.0.1', '--remote-debugging-port=0', '--user-data-dir=' + profile, 'about:blank'], {stdio: ['ignore', 'ignore', 'pipe']});
   let stderr = '', socket, endpoint, session, nextId = 0;
-  const pending = new Map(), requests = [], exceptions = [], checks = [];
+  const pending = new Map(), requests = [], requestMethods = [], exceptions = [], checks = [];
   child.stderr.on('data', data => { stderr += data; const match = stderr.match(/DevTools listening on (ws:\/\/127\.0\.0\.1:\d+\/devtools\/browser\/\S+)/); if (match) endpoint = match[1]; });
   function rpc(method, params = {}, page = true) {
     const id = ++nextId;
@@ -64,7 +70,10 @@ const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
         const p = pending.get(data.id); pending.delete(data.id); clearTimeout(p.timer);
         if (data.error) p.reject(new Error(JSON.stringify(data.error))); else p.resolve(data.result);
       }
-      if (data.method === 'Network.requestWillBeSent') requests.push(data.params.request.url);
+      if (data.method === 'Network.requestWillBeSent') {
+        requestMethods.push(data.params.request.method);
+        requests.push(data.params.request.url);
+      }
       if (data.method === 'Runtime.exceptionThrown') exceptions.push(data.params.exceptionDetails);
     });
     const version = await rpc('Browser.getVersion', {}, false);
@@ -74,7 +83,32 @@ const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
     await rpc('Emulation.setDeviceMetricsOverride', {width: 1280, height: 1100, deviceScaleFactor: 1, mobile: false});
     await rpc('Browser.setDownloadBehavior', {behavior: 'allow', downloadPath: downloads}, false);
     const app = path.join(root, 'rowcheck-offline.html');
-    await rpc('Page.navigate', {url: pathToFileURL(app).href});
+    if (site) {
+      await rpc('Page.navigate', {url: site === 'local' ? pathToFileURL(path.join(root, 'docs/index.html')).href : site});
+      await until("document.readyState==='complete' && document.getElementById('open-tool') && document.images[0].complete && document.images[0].naturalWidth===1060", 'project landing and actual preview load');
+      assert.equal(await evaluate('document.documentElement.scrollWidth <= innerWidth'), true);
+      await capture('landing-desktop.png');
+      await rpc('Emulation.setDeviceMetricsOverride', {width: 390, height: 844, deviceScaleFactor: 1, mobile: false});
+      assert.equal(await evaluate('document.documentElement.scrollWidth <= innerWidth'), true);
+      await capture('landing-narrow.png');
+      checks.push('actual project landing, image, resource links and 390px layout load');
+      await rpc('Emulation.setDeviceMetricsOverride', {width: 1280, height: 1100, deviceScaleFactor: 1, mobile: false});
+      if (visualOnly) {
+        assert.ok(requestMethods.every(method => method === 'GET'), 'Project UI must not upload data');
+        assert.deepEqual(exceptions, []);
+        const visual = {state: 'passed_visual_only', browser: version.product, checks, networkRequests: requests, SafariUsed: false};
+        await fs.writeFile(path.join(work, 'ui-results.json'), JSON.stringify(visual, null, 2) + '\n');
+        console.log(JSON.stringify(visual, null, 2));
+        return;
+      }
+      await evaluate("document.getElementById('download-tool').click()");
+      for (let i = 0; i < 200; i++) { if (await fs.stat(path.join(downloads, 'rowcheck-offline.html')).catch(() => null)) break; await delay(50); }
+      assert.deepEqual(await fs.readFile(path.join(downloads, 'rowcheck-offline.html')), await fs.readFile(app));
+      checks.push('landing download returns the exact unchanged standalone HTML');
+      await evaluate("document.getElementById('open-tool').click()");
+    } else {
+      await rpc('Page.navigate', {url: pathToFileURL(app).href});
+    }
     await until("document.readyState === 'complete' && typeof RowCheck === 'object'", 'app loads');
     assert.deepEqual(await evaluate("({keyDisabled:document.getElementById('key').disabled, compareDisabled:document.getElementById('compare').disabled, resultsHidden:document.getElementById('results').hidden})"), {keyDisabled: true, compareDisabled: true, resultsHidden: true});
     checks.push('actual offline file loads, with deliberate key selection and no stale report');
@@ -145,9 +179,16 @@ const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
     await until("document.readyState==='complete' && document.getElementById('key').disabled", 'fresh reload');
     assert.equal(await evaluate("document.getElementById('left-file').files.length === 0 && document.getElementById('right-file').files.length === 0 && document.getElementById('results').hidden"), true);
     const external = requests.filter(url => /^https?:/.test(url));
-    assert.deepEqual(external, []); assert.deepEqual(exceptions, []);
-    checks.push('reload starts empty; no application HTTP(S) requests or uncaught browser exceptions observed');
-    receipt = {state: 'passed', browser: version.product, userAgent: version.userAgent, appSha256: createHash('sha256').update(await fs.readFile(app)).digest('hex'), checks, networkRequests: requests, externalHttpRequests: external, downloadedZipBytes: zip.length, downloadedZipSha256: createHash('sha256').update(zip).digest('hex'), profile: 'New isolated headless profile only; removed after process exit', SafariUsed: false};
+    assert.ok(requestMethods.every(method => method === 'GET'), 'Project UI must not upload data');
+    if (site && site !== 'local') {
+      const allowed = new Set([site, site + 'compare.html', site + 'offline-example.png', site + 'favicon.ico', 'https://jhrch7.github.io/favicon.ico']);
+      assert.ok(external.every(url => allowed.has(url)), 'Only the declared project resources may be requested');
+    } else {
+      assert.deepEqual(external, []);
+    }
+    assert.deepEqual(exceptions, []);
+    checks.push('reload starts empty; only declared project GET resources and no uncaught browser exceptions observed');
+    receipt = {state: 'passed', browser: version.product, userAgent: version.userAgent, siteUrl: site, appSha256: createHash('sha256').update(await fs.readFile(app)).digest('hex'), checks, networkRequests: requests, requestMethods, externalHttpRequests: external, downloadedZipBytes: zip.length, downloadedZipSha256: createHash('sha256').update(zip).digest('hex'), profile: 'New isolated headless profile only; removed after process exit', SafariUsed: false};
     await fs.writeFile(path.join(work, 'ui-results.json'), JSON.stringify(receipt, null, 2) + '\n');
     console.log(JSON.stringify(receipt, null, 2));
   } finally {

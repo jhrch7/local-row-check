@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="description" content="A free, MIT-licensed CSV comparison tool. Review ambiguous keys and selected changes locally in your browser, with downloadable reports.">
+  <link rel="icon" href="data:,">
+  <title>Local Row Check · Compare CSV exports locally</title>
+  <style>
+    :root{color-scheme:light;font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:#17252d;background:#f5f7f5}
+    *{box-sizing:border-box}body{margin:0}main{max-width:1040px;margin:auto;padding:64px 28px 36px}
+    .eyebrow{color:#355f52;font-weight:700;letter-spacing:.08em;font-size:.8rem;text-transform:uppercase}
+    h1{font-size:clamp(2.05rem,5.5vw,3.75rem);letter-spacing:-.045em;line-height:1.08;max-width:850px;margin:16px 0 24px}
+    p{line-height:1.65;max-width:760px;margin:12px 0}.intro{font-size:1.16rem;color:#394d50}
+    a{color:#1b5b49;text-underline-offset:3px}a:focus-visible{outline:3px solid #b95816;outline-offset:5px}
+    .actions{display:flex;flex-wrap:wrap;gap:12px;margin:28px 0 20px}.button{display:inline-block;padding:13px 19px;border:1px solid #1b5b49;border-radius:9px;font-weight:650;text-decoration:none}
+    .primary{background:#1b5b49;color:white}.secondary{background:white}.links{font-size:.95rem;display:flex;gap:20px;flex-wrap:wrap}
+    .panel{background:white;border:1px solid #dce4de;border-radius:16px;padding:24px;margin-top:32px}
+    .facts{display:grid;grid-template-columns:repeat(3,1fr);gap:24px}.facts h2{font-size:1rem;margin:0 0 8px}.facts p{font-size:.95rem;margin:0;color:#415558}
+    figure{margin:32px 0 0}img{display:block;width:100%;height:auto;border:1px solid #dce4de;border-radius:12px;background:white}figcaption{font-size:.88rem;color:#4b5d5b;line-height:1.5;margin-top:10px}
+    .privacy{font-size:.92rem;color:#415558;margin-top:28px}footer{margin-top:30px;padding-top:20px;border-top:1px solid #dce4de;font-size:.9rem;color:#4b5d5b}
+    @media(max-width:620px){main{padding:32px 20px}.facts{grid-template-columns:1fr;gap:20px}.panel{padding:20px}.actions{display:grid}.button{text-align:center}.links{gap:10px 20px}}
+  </style>
+</head>
+<body>
+<main>
+  <div class="eyebrow">Local Row Check · Free and open source</div>
+  <h1>Compare CSV exports.<br>Keep ambiguous rows in view.</h1>
+  <p class="intro">Choose two exports and a comparison key. See which keys occur in only one file, hold blank or duplicate keys for review, and compare the value columns you select.</p>
+  <div class="actions">
+    <a class="button primary" id="open-tool" href="compare.html">Open the comparison tool</a>
+    <a class="button secondary" id="download-tool" href="compare.html" download="rowcheck-offline.html">Download for offline use</a>
+  </div>
+  <nav class="links" aria-label="Project resources">
+    <a href="https://github.com/jhrch7/local-row-check/blob/main/browser/README.md">Browser guide and limits</a>
+    <a href="https://github.com/jhrch7/local-row-check">Source and project README</a>
+  </nav>
+  <section class="panel facts" aria-label="How the comparison works">
+    <div><h2>Choose the rules</h2><p>Exact keys and exact selected values. UTF-8 CSVs, up to 2 MiB and 50,000 data records per file.</p></div>
+    <div><h2>Review before changing data</h2><p>Every row in an ambiguous key group goes to review. Shared keys alone do not establish identity.</p></div>
+    <div><h2>Keep the reports</h2><p>Download CSV reports and a manifest of source/output hashes. Your original files are not modified.</p></div>
+  </section>
+  <figure>
+    <img src="offline-example.png" width="1060" height="670" alt="Actual Local Row Check synthetic catalogue example, showing the comparison controls, counts and downloadable report previews.">
+    <figcaption>The included synthetic catalogue example holds four rows for review and finds three changed cells across two unique shared keys. This is an actual tool capture.</figcaption>
+  </figure>
+  <p class="privacy">GitHub serves this page and the tool file and logs page visits. The comparison code processes chosen CSV files in your browser and makes no file upload or analytics requests. Download the standalone HTML for use without a network connection.</p>
+  <p class="privacy">The browser edition was exercised in Chrome on macOS. Other browsers and physical phones remain untested. The guide records the checks and deliberate limits.</p>
+  <footer>Version 1.2.0 · MIT licence · Source and guide produced with AI coding assistance. The project README also describes optional paid comparison help, agreed separately before any order.</footer>
+</main>
+</body>
+</html>

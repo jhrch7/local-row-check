@@ -27,6 +27,11 @@ def build():
     output = ROOT / "rowcheck-offline.html"
     output.write_text(template)
     print(f"Built {output.name}: {output.stat().st_size} bytes")
+    site = ROOT / "docs"
+    if site.is_dir():
+        (site / "compare.html").write_bytes(output.read_bytes())
+        (site / "offline-example.png").write_bytes((ROOT / "media/offline-example.png").read_bytes())
+        print("Synced the identical standalone file and actual preview into docs/")
 
 
 if __name__ == "__main__":

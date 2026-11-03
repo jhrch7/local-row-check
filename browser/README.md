@@ -5,6 +5,12 @@ Download **rowcheck-offline.html** from the
 Save the file and open it in a current Chromium browser. It is a complete local
 file: no server, Python, installation, sign-in or network connection is needed.
 
+The [online project demo](https://jhrch7.github.io/local-row-check/) serves an
+identical copy of the standalone tool. GitHub logs page visits; the comparison
+code makes no file-upload or analytics requests. Use the download for fully
+offline work. Rebuilding also synchronizes the tool and actual preview into
+`docs/`, the project site's publishing directory.
+
 1. Try the included synthetic example, or choose a left and right CSV file.
 2. Choose the delimiter used in both files: comma, semicolon or tab.
 3. Choose the exact key header shared by both files. Optionally select non-key
@@ -55,6 +61,7 @@ python3 -B browser/build.py
 node --test browser/core.test.cjs
 python3 -B browser/check_parity.py --work-dir /your/new/task-owned/parity-directory
 node browser/check_ui.cjs --chrome /path/to/Chrome --work-dir /your/new/task-owned/ui-directory
+node browser/check_ui.cjs --chrome /path/to/Chrome --work-dir /your/new/task-owned/site-check --site-url https://jhrch7.github.io/local-row-check/
 ```
 
 The parity check uses the existing Python engine as the oracle for nine named
@@ -64,6 +71,9 @@ example, previews, downloads, invalidation, pending-read reset and reload.
 `check_ui.cjs` creates a **new isolated headless profile**, closes its own browser
 and removes only that profile. It does not access an existing browser session.
 Logs, synthetic downloads and screenshots remain in the new work directory.
+The optional site check uses this project's public Pages site, verifies that its
+HTML download matches the standalone file, and allows only the declared project
+GET resources. It does not use an account or an existing browser session.
 
 The seven core tests and nine parity cases passed with Node 24.17.0 and Python
 3.14 on macOS. Browser screenshots were inspected; this is automated verification

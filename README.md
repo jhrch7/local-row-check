@@ -3,6 +3,10 @@
 Version 1.2.0 adds a single-file offline browser edition. The Python CLI remains
 the unchanged 1.1.0 engine.
 
+[Open the free browser edition](https://jhrch7.github.io/local-row-check/) or
+download the standalone file below. GitHub serves the online page and logs page
+visits; chosen CSV files are processed locally by the comparison code.
+
 Compare two CSV exports on your computer. Find keys that appear in only one file,
 review blank or duplicate keys separately, and optionally compare selected values
 on unique shared keys. Nothing is uploaded. No account,
