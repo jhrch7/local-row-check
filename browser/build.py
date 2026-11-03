@@ -21,6 +21,9 @@ def build():
         assert template.count(marker) == 1
         template = template.replace(marker, value)
     assert "/* ROWCHECK_" not in template
+    licence = (ROOT / "LICENSE").read_text()
+    assert "-->" not in licence
+    template += "\n<!--\n" + licence + "-->\n"
     output = ROOT / "rowcheck-offline.html"
     output.write_text(template)
     print(f"Built {output.name}: {output.stat().st_size} bytes")
