@@ -1,0 +1,140 @@
+{
+  "method": {
+    "at_utc": "2026-11-03T07:08:50.009722+00:00",
+    "source_head": "35aca7f7581558f26bde9f349432a3a9c44c3bd1",
+    "cli_version": "1.1.0 (browser release is separately1.2.0)",
+    "cli_sha256": "c7bb1df6faa02aa772f93f39338c837010dffacdfa83fe7c27446b2a4a916cfc",
+    "python": "3.14.6",
+    "macOS": "26.5.2",
+    "architecture": "arm64"
+  },
+  "results": [
+    {
+      "rows_per_input": 10000,
+      "input_files": [
+        {
+          "name": "left.csv",
+          "bytes": 549034,
+          "sha256": "4b8ca8a805d15f3f279d3e23278ab314ee16c701451bcf0d915d3f2ef03f2708",
+          "data_rows": 10000
+        },
+        {
+          "name": "right.csv",
+          "bytes": 549234,
+          "sha256": "e4c78f5689beae529e32dd99b55f37a92b1c7e9e208af010165048c04f81722c",
+          "data_rows": 10000
+        }
+      ],
+      "combined_input_bytes": 1098268,
+      "elapsed_seconds": 0.167614,
+      "max_rss_bytes_macos_time": 47579136,
+      "counts": {
+        "left": {
+          "input": 10000,
+          "only": 5000,
+          "shared": 5000,
+          "review": 0
+        },
+        "right": {
+          "input": 10000,
+          "only": 5000,
+          "shared": 5000,
+          "review": 0
+        }
+      },
+      "changed_cells": 5000,
+      "verified_output_csvs": 5,
+      "output_csv_bytes": 1100269,
+      "command_exit": 0,
+      "output_csv_files": {
+        "only_left.csv": {
+          "sha256": "32d586112ab7c7b91aa32a2497a9ec3c57e227aa055e94cac76b89092fcb537c",
+          "bytes": 353464
+        },
+        "only_right.csv": {
+          "sha256": "c3a8a2f7c8d1c3d29d308b66a9bea5b09c3f557ff241731aae79580d94eadc06",
+          "bytes": 354672
+        },
+        "review.csv": {
+          "sha256": "71810e846fef373272ed2010b7be73a0d8a6da128ce629ce54c7a31826f1d3b1",
+          "bytes": 64
+        },
+        "shared_keys.csv": {
+          "sha256": "e5b880fe5718d62113bb9b029fde07d8ed4ee8f01bfc1ab7c4c1fa8e1334180f",
+          "bytes": 213988
+        },
+        "value_changes.csv": {
+          "sha256": "6dd0af7b20055585018e13fbddd7eeb518b5ecfc5c880c8d5e61e9ff05670d91",
+          "bytes": 178081
+        }
+      }
+    },
+    {
+      "rows_per_input": 100000,
+      "input_files": [
+        {
+          "name": "left.csv",
+          "bytes": 5490034,
+          "sha256": "3eaa0fe9650dd0d600fe4bbf50f5f2353eb016aae19e20894b6daa600157576c",
+          "data_rows": 100000
+        },
+        {
+          "name": "right.csv",
+          "bytes": 5492034,
+          "sha256": "5fd92de1add7d04b8d88f84a90270574458a52a59fe5cd95f5bfbbe1e1b39d52",
+          "data_rows": 100000
+        }
+      ],
+      "combined_input_bytes": 10982068,
+      "elapsed_seconds": 1.197229,
+      "max_rss_bytes_macos_time": 275496960,
+      "counts": {
+        "left": {
+          "input": 100000,
+          "only": 50000,
+          "shared": 50000,
+          "review": 0
+        },
+        "right": {
+          "input": 100000,
+          "only": 50000,
+          "shared": 50000,
+          "review": 0
+        }
+      },
+      "changed_cells": 50000,
+      "verified_output_csvs": 5,
+      "output_csv_bytes": 11299072,
+      "command_exit": 0,
+      "output_csv_files": {
+        "only_left.csv": {
+          "sha256": "86cfddac78dbe9cc4b34ae63e8f5dd3d3ddf0c757fa7e9b039e664b358bc923d",
+          "bytes": 3583965
+        },
+        "only_right.csv": {
+          "sha256": "fe7386b0fe3fd681eb0c8af62b634dd8350cc7ca125bddc1a40380320d3fcf9c",
+          "bytes": 3596072
+        },
+        "review.csv": {
+          "sha256": "71810e846fef373272ed2010b7be73a0d8a6da128ce629ce54c7a31826f1d3b1",
+          "bytes": 64
+        },
+        "shared_keys.csv": {
+          "sha256": "9b2305aca33348904ca7b4e4131f8a30b3ddb681056efdf0f7cd274688e5d68c",
+          "bytes": 2238989
+        },
+        "value_changes.csv": {
+          "sha256": "9661ead7569d1e442afd88aaf04185942b51dbd819dd4ef20f7adb9f92e0827a",
+          "bytes": 1879982
+        }
+      }
+    }
+  ],
+  "interpretation_limits": [
+    "One fresh CLI process per size; no repeated medians or cold-disk claim.",
+    "Inputs generated immediately beforehand; cache/load may affect timing.",
+    "Five columns, unique keys,50percent overlap, every shared quantity changed; blank/duplicate/long-field distributions not measured.",
+    "macOS arm64 only; Linux/browser/other sizes not measured.",
+    "Measured base memory, not a disk-backed implementation or a grant outcome."
+  ]
+}

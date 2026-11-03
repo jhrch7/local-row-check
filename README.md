@@ -187,3 +187,10 @@ claimed. Keep originals and check the review file before making business changes
 If this free tool is useful to you, you can [offer voluntary support by email](mailto:jayos00001@gmail.com?subject=Local%20Row%20Check%20voluntary%20support).
 Any amount, currency and receiving method must be agreed before funds are sent; please do not send account details or credentials.
 This is optional support for further public work, with no promised features, service, response time or charitable tax deduction. The existing licence stays the same.
+
+## Measured CLI baseline
+
+A pinned macOS arm64 run compared two synthetic 100,000-record CSVs in 1.197 seconds
+with 262.7 MiB peak resident memory. See the [source, fixture recipe and limits](benchmarks/cli-memory-2026-11-03.md)
+for both measured sizes and verified output counts/hashes. These are specific
+observations, not a general capacity or timing guarantee; browser limits are unchanged.
